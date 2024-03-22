@@ -222,7 +222,17 @@ GroupQueueInfo* BattlegroundQueue::AddGroup(Player* leader, Group* group, Battle
         SendMessageBGQueue(leader, bg, bracketEntry);
 
     //npcbot: try to queue wandering bots
+    // if (!isRated && !arenaType && !arenaTeamId && !sBattlegroundMgr->isTesting() && !leader->GetGroup()) // Don't allow group queue
     if (!isRated && !arenaType && !arenaTeamId && !sBattlegroundMgr->isTesting())
+    {
+        if (!BotDataMgr::GenerateBattlegroundBots(leader, group, this, bracketEntry, ginfo))
+        {
+            LOG_WARN("npcbots", "Did NOT generate bots for BG {} for leader {} ({} members)",
+                uint32(bgTypeId), leader->GetDebugInfo().c_str(), group ? group->GetMembersCount() : 0u);
+        }
+    }
+    // Ornfelt: Arena:
+    else if (!isRated && arenaType && !sBattlegroundMgr->isTesting() && !leader->GetGroup()) // Don't allow group queue
     {
         if (!BotDataMgr::GenerateBattlegroundBots(leader, group, this, bracketEntry, ginfo))
         {

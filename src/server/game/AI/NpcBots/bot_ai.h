@@ -679,6 +679,10 @@ class bot_ai : public CreatureAI
 
         //timers
         uint32 _reviveTimer, _powersTimer, _chaseTimer, _engageTimer, _potionTimer;
+        // Ornfelt: stucktimer
+        uint32 _stuckTimer;
+        uint32 stuckWpId;
+
         uint32 lastdiff, checkAurasTimer, checkMasterTimer, roleTimer, ordersTimer, regenTimer, _updateTimerMedium, _updateTimerEx1;
         uint32 _checkOwershipTimer;
         uint32 _moveBehindTimer;

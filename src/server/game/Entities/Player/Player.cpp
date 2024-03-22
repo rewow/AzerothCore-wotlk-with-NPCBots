@@ -1072,6 +1072,11 @@ void Player::setDeathState(DeathState s, bool /*despawn = false*/)
     if (IsAlive() && !cur)
         //clear aura case after resurrection by another way (spells will be applied before next death)
         SetUInt32Value(PLAYER_SELF_RES_SPELL, 0);
+
+    // Ornfelt: check win condition (seems to be required if player gets killed by unit other than bot / player)
+    if (InArena())
+        if (Battleground* bg = GetBattleground())
+            bg->CheckWinConditions();
 }
 
 void Player::SetRestState(uint32 triggerId)
@@ -10721,14 +10726,29 @@ void Player::InitDisplayIds()
         case GENDER_FEMALE:
             SetDisplayId(info->displayId_f);
             SetNativeDisplayId(info->displayId_f);
+            // Ornfelt: Save real native displayid and log it
+            //demorphId = info->displayId_f;
+            LOG_INFO("server.loading", "DisplayID: {}", std::to_string(info->displayId_f));
             break;
         case GENDER_MALE:
             SetDisplayId(info->displayId_m);
             SetNativeDisplayId(info->displayId_m);
+            // Ornfelt: If draenei, change to undead male display
+            //if (info->displayId_m == 16125)
+            //{
+            //    SetDisplayId(57);
+            //    SetNativeDisplayId(57);
+            //}
+            // Ornfelt: Save real native displayid and log it
+            //demorphId = info->displayId_m;
+            LOG_INFO("server.loading", "DisplayID: {}", std::to_string(info->displayId_m));
             break;
         default:
             LOG_ERROR("entities.player", "Invalid gender {} for player", gender);
             return;
+            // Ornfelt: always skeleton
+            //SetDisplayId(7550);
+            //SetNativeDisplayId(7550);
     }
 }
 
