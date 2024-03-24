@@ -124,7 +124,7 @@ public:
 
 			// Ornfelt: Fix arena
 			//if (!bg->HasFreeSlots() && !bg->isArena()) // Not needed anymore
-            if (!bg || (bg->GetPlayersCountByTeam(TEAM_ALLIANCE) + bg->GetPlayersCountByTeam(TEAM_HORDE) >= bg->GetMaxPlayersPerTeam() * 2 && !bg->isArena()))
+            if (!bg || (bg->GetPlayersCountByTeam(TEAM_ALLIANCE) + bg->GetPlayersCountByTeam(TEAM_HORDE) >= bg->GetMaxPlayersPerTeam() * 2))
             {
                 AbortAll();
                 return true;
