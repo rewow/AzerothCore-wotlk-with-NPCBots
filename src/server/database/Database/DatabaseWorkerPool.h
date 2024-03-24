@@ -223,7 +223,7 @@ public:
     void WarnAboutSyncQueries([[maybe_unused]] bool warn)
     {
 #ifdef ACORE_DEBUG
-        _warnSyncQueries = warn;
+        //_warnSyncQueries = warn;
 #endif
     }
 
