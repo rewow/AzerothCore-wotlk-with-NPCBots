@@ -2366,22 +2366,22 @@ void bot_ai::SetStats(bool force)
         if (me->GetLevel() > mylevel)
             UnsummonAll();
 
-        me->SetLevel(mylevel);
-        force = true; //reinit spells/passives/other
         // Ornfelt: don't level up, but log the "Dings"
         if (_killsCount > 0)
         {
-            LOG_INFO("server.loading", "BOT DING!!! Bot: {}, prevlevel: {}, mylevel: {}, _killsCount: {}", me->GetEntry(), me->GetLevel(), mylevel, _killsCount);
+            LOG_INFO("server.loading", "BOT DING! Bot: {}, prevlevel: {}, mylevel: {}, _killsCount: {}", me->GetEntry(), me->GetLevel(), mylevel, _killsCount);
             // Don't level up if above level 59
             //if (mylevel >= 60)
             //{
             //    //LOG_INFO("server.loading", "mylevel >= 60, reverting to prevlevel");
-            //    //mylevel = prevlevel;
-            //    mylevel = me->GetLevel();
-            //    // Reset _killsCount
-            //    _killsCount = 0;
+            mylevel = me->GetLevel();
+            // Reset _killsCount
+            _killsCount = 0;
             //}
         }
+
+        me->SetLevel(mylevel);
+        force = true; //reinit spells/passives/other
 
         if (me->GetLevel() != mylevel)
         {
