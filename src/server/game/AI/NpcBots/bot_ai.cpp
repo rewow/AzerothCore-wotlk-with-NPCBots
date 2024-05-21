@@ -18719,46 +18719,46 @@ WanderNode const* bot_ai::GetNextBGTravelNode() const
                     return assalist.size() == 1u ? assalist.front() : Acore::Containers::SelectRandomContainerElement(assalist);
             }
             //Last thing: try to capture the mines (2 people at most)
-            //for (auto const& p : { std::pair{TEAM_ALLIANCE, std::array{AV_CPLACE_MINE_N_3, AV_CPLACE_MINE_S_3}}, std::pair{TEAM_HORDE, std::array{AV_CPLACE_MINE_S_3, AV_CPLACE_MINE_N_3}} })
-            //{
-            //    if (myTeamId != p.first)
-            //        continue;
+            for (auto const& p : { std::pair{TEAM_ALLIANCE, std::array{AV_CPLACE_MINE_N_3, AV_CPLACE_MINE_S_3}}, std::pair{TEAM_HORDE, std::array{AV_CPLACE_MINE_S_3, AV_CPLACE_MINE_N_3}} })
+            {
+                if (myTeamId != p.first)
+                    continue;
 
-            //    static const std::function mine_pred = [](WanderNode const* wp) { return wp->HasFlag(BotWPFlags::BOTWP_FLAG_BG_MISC_OBJECTIVE_1); };
+                static const std::function mine_pred = [](WanderNode const* wp) { return wp->HasFlag(BotWPFlags::BOTWP_FLAG_BG_MISC_OBJECTIVE_1); };
 
-            //    for (BG_AV_CreaturePlace sptype : p.second)
-            //    {
-            //        Creature const* mboss = ASSERT_NOTNULL(av->GetBGCreature(uint32(sptype)));
-            //        if (mboss->IsAlive() && !mboss->IsInCombat() && me->IsWithinDist2d(mboss, SIZE_OF_GRIDS * 0.75f))
-            //        {
-            //            WanderNode const* mineWP = ASSERT_NOTNULL(WanderNode::FindInAreaWPs(mboss->GetAreaId(), mine_pred));
-            //            WanderNode const* mineLink = mineWP->GetLinks().front();
-            //            NodeList mlinks = curNode->GetShortestPathLinks(mineWP, links);
-            //            if (!mlinks.empty())
-            //            {
-            //                uint32 attackers_count = 0;
-            //                for (Unit const* member : team_members)
-            //                {
-            //                    if (member == me || !member->IsAlive() || !member->IsNPCBot())
-            //                        continue;
-            //                    WanderNode const* mwp = member->ToCreature()->GetBotAI()->_travel_node_cur;
-            //                    if (!mwp)
-            //                        continue;
-            //                    if (mwp == mineWP || mwp == mineLink || member->GetVictim() == mboss ||
-            //                        std::find(mlinks.cbegin(), mlinks.cend(), mwp) != mlinks.cend() ||
-            //                        (!mwp->GetLinks().empty() && std::find(mwp->GetLinks().cbegin(), mwp->GetLinks().cend(), mineLink) != mwp->GetLinks().cend()))
-            //                        ++attackers_count;
-            //                }
-            //                if (attackers_count <= 1)
-            //                {
-            //                    LOG_DEBUG("npcbots", "Bot {} {} team {} goes for a mine! Cur node: {} {}",
-            //                        me->GetName().c_str(), me->GetEntry(), uint32(myTeamId), curNode->GetWPId(), curNode->GetName().c_str());
-            //                    return mlinks.size() == 1u ? mlinks.front() : Acore::Containers::SelectRandomContainerElement(mlinks);
-            //                }
-            //            }
-            //        }
-            //    }
-            //}
+                for (BG_AV_CreaturePlace sptype : p.second)
+                {
+                    Creature const* mboss = ASSERT_NOTNULL(av->GetBGCreature(uint32(sptype)));
+                    if (mboss->IsAlive() && !mboss->IsInCombat() && me->IsWithinDist2d(mboss, SIZE_OF_GRIDS * 0.75f))
+                    {
+                        WanderNode const* mineWP = ASSERT_NOTNULL(WanderNode::FindInAreaWPs(mboss->GetAreaId(), mine_pred));
+                        WanderNode const* mineLink = mineWP->GetLinks().front();
+                        NodeList mlinks = curNode->GetShortestPathLinks(mineWP, links);
+                        if (!mlinks.empty())
+                        {
+                            uint32 attackers_count = 0;
+                            for (Unit const* member : team_members)
+                            {
+                                if (member == me || !member->IsAlive() || !member->IsNPCBot())
+                                    continue;
+                                WanderNode const* mwp = member->ToCreature()->GetBotAI()->_travel_node_cur;
+                                if (!mwp)
+                                    continue;
+                                if (mwp == mineWP || mwp == mineLink || member->GetVictim() == mboss ||
+                                    std::find(mlinks.cbegin(), mlinks.cend(), mwp) != mlinks.cend() ||
+                                    (!mwp->GetLinks().empty() && std::find(mwp->GetLinks().cbegin(), mwp->GetLinks().cend(), mineLink) != mwp->GetLinks().cend()))
+                                    ++attackers_count;
+                            }
+                            if (attackers_count <= 1)
+                            {
+                                LOG_DEBUG("npcbots", "Bot {} {} team {} goes for a mine! Cur node: {} {}",
+                                    me->GetName().c_str(), me->GetEntry(), uint32(myTeamId), curNode->GetWPId(), curNode->GetName().c_str());
+                                return mlinks.size() == 1u ? mlinks.front() : Acore::Containers::SelectRandomContainerElement(mlinks);
+                            }
+                        }
+                    }
+                }
+            }
             //No immediate target: rush enemy captain
             for (TeamId teamId : { TEAM_ALLIANCE, TEAM_HORDE })
             {
