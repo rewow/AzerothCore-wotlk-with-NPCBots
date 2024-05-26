@@ -209,6 +209,7 @@ class bot_ai : public CreatureAI
         uint8 GetPlayerRace() const;
 
         bool IsTempBot() const;
+        bool CanAppearInWorld() const;
 
         void SetShouldUpdateStats() { shouldUpdateStats = true; }
         void UpdateHealth() { doHealth = true; }
@@ -680,11 +681,7 @@ class bot_ai : public CreatureAI
 
         //timers
         uint32 _reviveTimer, _powersTimer, _chaseTimer, _engageTimer, _potionTimer;
-        // Ornfelt: stucktimer
-        uint32 _stuckTimer;
-        uint32 stuckWpId;
-
-        uint32 lastdiff, checkAurasTimer, checkMasterTimer, roleTimer, ordersTimer, regenTimer, _updateTimerMedium, _updateTimerEx1;
+        uint32 lastdiff, checkAurasTimer, checkMasterTimer, roleTimer, ordersTimer, regenTimer, _updateTimerMedium, _updateTimerEx1, _updateTimerEx2;
         uint32 _checkOwershipTimer;
         uint32 _moveBehindTimer;
         uint32 _wmoAreaUpdateTimer;
@@ -697,6 +694,10 @@ class bot_ai : public CreatureAI
         uint32 _groupUpdateTimer;
         //save timers
         uint32 _saveDisabledSpellsTimer;
+
+        // Ornfelt: stucktimer
+        uint32 _stuckTimer;
+        uint32 stuckWpId;
 
         uint32 _lastZoneId, _lastAreaId, _lastWMOAreaId;
         uint32 _selfrez_spell_id;
@@ -714,6 +715,7 @@ class bot_ai : public CreatureAI
         bool _evadeMode;
         bool _atHome;
         bool _duringTeleport;
+        bool _canAppearInWorld;
 
         //wandering bots
         bool _wanderer;
