@@ -2,6 +2,7 @@
 #include "BattlegroundQueue.h"
 #include "bot_ai.h"
 #include "botdatamgr.h"
+#include "botlog.h"
 #include "botmgr.h"
 #include "botspell.h"
 #include "botwanderful.h"
@@ -10,6 +11,7 @@
 #include "Creature.h"
 #include "DatabaseEnv.h"
 #include "DBCStores.h"
+#include "GameTime.h"
 #include "GroupMgr.h"
 #include "Item.h"
 #include "Log.h"
@@ -162,7 +164,7 @@ public:
     void Abort(uint64 /*e_time*/) override { AbortMe(); }
 };
 
-void SpawnWandererBot(uint32 bot_id, WanderNode const* spawnLoc, NpcBotRegistry* registry)
+static void SpawnWandererBot(uint32 bot_id, WanderNode const* spawnLoc, NpcBotRegistry* registry)
 {
     CreatureTemplate const& bot_template = _botsWanderCreatureTemplates.at(bot_id);
     NpcBotData const* bot_data = BotDataMgr::SelectNpcBotData(bot_id);
@@ -1050,6 +1052,13 @@ void BotDataMgr::LoadNpcBotGearStorage()
     } while (result->NextRow());
 
     LOG_INFO("server.loading", ">> Loaded {} NPCBot stored items for {} bot owners in {} ms", count, uint32(player_guids.size()), GetMSTimeDiffToNow(oldMSTime));
+}
+
+void BotDataMgr::DeleteOldLogs()
+{
+    uint32 month_cutoff = static_cast<uint32>(GameTime::GetGameTime().count() - static_cast<time_t>(BOT_LOG_KEEP_DAYS) * DAY);
+    CharacterDatabase.Execute("DELETE FROM `characters_npcbot_logs` WHERE timestamp IS NOT NULL AND timestamp < FROM_UNIXTIME({})", month_cutoff);
+    LOG_INFO("server.loading", "Deleting NPCBot log entries older than {} days...", BOT_LOG_KEEP_DAYS);
 }
 
 void BotDataMgr::LoadWanderMap(bool reload)
@@ -2157,7 +2166,7 @@ bool BotDataMgr::GenerateWanderingBotItemEnchants(Item* item, uint8 slot, uint8 
     //enchants
     SpellInfo const* sInfo;
     std::vector<uint32> valid_enchant_ids;
-    valid_enchant_ids.reserve(1u << 6);
+    valid_enchant_ids.reserve(1ULL << 6);
     switch (spec)
     {
         case BOT_SPEC_PALADIN_HOLY:
