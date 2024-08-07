@@ -1137,7 +1137,7 @@ void bot_ai::_calculatePos(Unit const* followUnit, Position& pos, float* speed/*
         {
             const float baserunspeed = bmover->GetSpeed(MOVE_RUN);
             if (posdist > 50.0f)
-                *speed = baserunspeed * 1.75f;
+                *speed = baserunspeed * 2.0f;
             else if (posdist > 30.0f)
                 *speed = baserunspeed * 1.5f;
             else if (posdist > 10.0f)
@@ -2132,9 +2132,9 @@ void bot_ai::_listAuras(Player const* player, Unit const* unit) const
             case STAT_SPIRIT: mystat = LocalizedNpcText(player, BOT_TEXT_STAT_SPI); break;
             default: mystat = LocalizedNpcText(player, BOT_TEXT_STAT_UNK); break;
         }
-        //ch.PSendSysMessage("base %s: %.1f", mystat.c_str(), unit->GetCreateStat(Stats(i));
+        //ch.PSendSysMessage("base {}: {:.1f}", mystat, unit->GetCreateStat(Stats(i));
         float totalstat = unit->GetTotalStatValue(Stats(i));
-        //ch.PSendSysMessage("base total %s: %.1f", mystat.c_str(), totalstat);
+        //ch.PSendSysMessage("base total {}: {:.1f}", mystat, totalstat);
         if (unit == me)
         {
             BotStatMods t = MAX_BOT_ITEM_MOD;
@@ -2275,10 +2275,10 @@ void bot_ai::_listAuras(Player const* player, Unit const* unit) const
         //for (uint32 i = 0; i != 148; ++i)
         //{
         //    float val = me->GetFloatValue(i);
-        //    ch.PSendSysMessage("Float value at %u: %.9f", i, val);
+        //    ch.PSendSysMessage("Float value at {}: {:.9f}", i, val);
         //}
 
-        //ch.PSendSysMessage("healTargetIconFlags: %u", healTargetIconFlags);
+        //ch.PSendSysMessage("healTargetIconFlags: {}", healTargetIconFlags);
 
         //ch.PSendSysMessage("Roles:");
         //for (uint32 i = BOT_MAX_ROLE; i != BOT_ROLE_NONE; i >>= 1)
@@ -2315,7 +2315,7 @@ void bot_ai::_listAuras(Player const* player, Unit const* unit) const
         //        val += static_cast<BotStat>(_stats[j])[a];
 
         //    if (val != 0)
-        //        ch.PSendSysMessage("Item mod %u: bonus = %i", i, val);
+        //        ch.PSendSysMessage("Item mod {}: bonus = {}", i, val);
         //}
     }
 
@@ -7355,12 +7355,11 @@ void bot_ai::OnSpellHit(Unit* caster, SpellInfo const* spell)
         if (auraname == SPELL_AURA_MOUNTED)
         {
             //TC_LOG_ERROR("entities.unit", "OnSpellHit: mount on %s", me->GetName().c_str());
-            if (!IAmFree())
-                UnsummonAll();
             if (master->HasAuraType(SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED) ||
                 master->HasAuraType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED))
             {
                 //TC_LOG_ERROR("entities.unit", "OnSpellHit: modding flight speed");
+                UnsummonAll(false);
                 const_cast<CreatureTemplate*>(me->GetCreatureTemplate())->Movement.Flight = CreatureFlightMovementType::DisableGravity;
                 me->SetCanFly(true);
                 me->SetDisableGravity(true);
@@ -8195,7 +8194,7 @@ bool bot_ai::OnGossipSelect(Player* player, Creature* creature/* == me*/, uint32
                     else if (action == 2)
                     {
                         //Clear poisons (autorefresh is in class ai DoNonCombatActions
-                        RemoveItemClassEnchants();
+                        RemoveItemClassEnchantments();
                     }
                     else if (action == 3)
                     {
@@ -8249,7 +8248,7 @@ bool bot_ai::OnGossipSelect(Player* player, Creature* creature/* == me*/, uint32
                     if (action == 2)
                     {
                         //Clear enchants (autorefresh is in class ai DoNonCombatActions
-                        RemoveItemClassEnchants();
+                        RemoveItemClassEnchantments();
                     }
                     else if (action == 3)
                     {
@@ -10731,7 +10730,7 @@ bool bot_ai::OnGossipSelect(Player* player, Creature* creature/* == me*/, uint32
                 {
                     close = false;
                     ChatHandler ch(player->GetSession());
-                    ch.PSendSysMessage("%s's Roles:", me->GetName().c_str());
+                    ch.PSendSysMessage("{}'s Roles:", me->GetName());
                     for (uint32 i = BOT_MAX_ROLE; i != BOT_ROLE_NONE; i >>= 1)
                     {
                         if (_roleMask & i)
@@ -10760,7 +10759,7 @@ bool bot_ai::OnGossipSelect(Player* player, Creature* creature/* == me*/, uint32
                                     ch.SendSysMessage("BOT_ROLE_PARTY");
                                     break;
                                 default:
-                                    ch.PSendSysMessage("BOT_ROLE_%u",i);
+                                    ch.PSendSysMessage("BOT_ROLE_{}", i);
                                     break;
                             }
                         }
@@ -10771,7 +10770,7 @@ bool bot_ai::OnGossipSelect(Player* player, Creature* creature/* == me*/, uint32
                 {
                     close = false;
                     ChatHandler ch(player->GetSession());
-                    ch.PSendSysMessage("%s's Spells:", me->GetName().c_str());
+                    ch.PSendSysMessage("{}'s Spells:", me->GetName());
                     uint32 counter = 0;
                     SpellInfo const* spellInfo;
                     BotSpellMap const& myspells = GetSpellMap();
@@ -10788,7 +10787,7 @@ bool bot_ai::OnGossipSelect(Player* player, Creature* creature/* == me*/, uint32
                             << ", cd: " << itr->second->cooldown << ", base: " << std::max<uint32>(spellInfo->RecoveryTime, spellInfo->CategoryRecoveryTime);
                         if (itr->second->enabled == false)
                             sstr << " (disabled)";
-                        ch.PSendSysMessage("%u) %s", counter, sstr.str().c_str());
+                        ch.PSendSysMessage("{}) {}", counter, sstr.str());
                     }
                     break;
                 }
@@ -13058,23 +13057,27 @@ void bot_ai::RemoveItemEnchantment(Item const* item, EnchantmentSlot eslot)
     }
 }
 
-void bot_ai::RemoveItemClassEnchants()
+void bot_ai::RemoveItemClassEnchantment(uint8 slot)
 {
     uint8 eslot = TEMP_ENCHANTMENT_SLOT;
+
+    if (!GetAIMiscValue(slot == BOT_SLOT_MAINHAND ? BOTAI_MISC_ENCHANT_CAN_EXPIRE_MH : BOTAI_MISC_ENCHANT_CAN_EXPIRE_OH))
+        return;
+
+    Item* weap = _equips[slot];
+    if (!weap || !weap->GetEnchantmentId(EnchantmentSlot(eslot)))
+        return;
+
+    RemoveItemEnchantment(weap, EnchantmentSlot(eslot));
+
+    for (uint8 i = 0; i != MAX_SPELL_ITEM_ENCHANTMENT_EFFECTS; ++i)
+        weap->SetUInt32Value(ITEM_FIELD_ENCHANTMENT_1_1 + eslot*MAX_ENCHANTMENT_OFFSET + i, 0);
+}
+
+void bot_ai::RemoveItemClassEnchantments()
+{
     for (uint8 k = BOT_SLOT_MAINHAND; k != BOT_SLOT_RANGED; ++k)
-    {
-        if (!GetAIMiscValue(k == BOT_SLOT_MAINHAND ? BOTAI_MISC_ENCHANT_CAN_EXPIRE_MH : BOTAI_MISC_ENCHANT_CAN_EXPIRE_OH))
-            continue;
-
-        Item* weap = _equips[k];
-        if (!weap || !weap->GetEnchantmentId(EnchantmentSlot(eslot)))
-            continue;
-
-        RemoveItemEnchantment(weap, EnchantmentSlot(eslot));
-
-        for (uint8 i = 0; i != MAX_SPELL_ITEM_ENCHANTMENT_EFFECTS; ++i)
-            weap->SetUInt32Value(ITEM_FIELD_ENCHANTMENT_1_1 + eslot*MAX_ENCHANTMENT_OFFSET + i, 0);
-    }
+        RemoveItemClassEnchantment(k);
 }
 
 void bot_ai::ApplyItemEquipSpells(Item* item, bool apply)
@@ -14211,7 +14214,7 @@ void bot_ai::DefaultInit()
     if (!firstspawn)
     {
         me->RemoveAllAurasExceptType(SPELL_AURA_CONTROL_VEHICLE);
-        RemoveItemClassEnchants(); //clear rogue poisons / shaman ecnhants
+        RemoveItemClassEnchantments(); //clear rogue poisons / shaman ecnhants
         ApplyItemsSpells(); //restore item equip spells
     }
     else
@@ -14421,7 +14424,7 @@ void bot_ai::SetSpec(uint8 spec, bool activate)
     {
         BotDataMgr::UpdateNpcBotData(me->GetEntry(), NPCBOT_UPDATE_SPEC, &spec);
 
-        UnsummonAll();
+        UnsummonAll(false);
         removeShapeshiftForm();
         //from DefaultInit
         me->RemoveAllAurasExceptType(SPELL_AURA_CONTROL_VEHICLE);
@@ -15775,6 +15778,80 @@ void bot_ai::KilledUnit(Unit* u)
         if (me->GetMap()->GetEntry()->IsContinent())
             evadeDelayTimer = 3000;
     }
+}
+
+void bot_ai::UnsummonCreature(Creature* creature, bool save)
+{
+    if (creature)
+    {
+        if (!save)
+        {
+            ASSERT_NOTNULL(creature->ToTempSummon())->UnSummon();
+            return;
+        }
+
+        bot_pet_ai* petai = creature->GetBotPetAI();
+        if (petai)
+        {
+            petai->KillEvents(true);
+            petai->canUpdate = false;
+        }
+
+        creature->m_Events.KillAllEvents(false);
+        Map* petmap = creature->FindMap();
+        if (petmap)
+        {
+            if (creature->IsInWorld())
+            {
+                creature->RemoveFromWorld();
+                creature->BotStopMovement();
+                creature->RemoveAurasByType(SPELL_AURA_MOD_STUN);
+                creature->RemoveAurasByType(SPELL_AURA_MOD_FEAR);
+                creature->RemoveAurasByType(SPELL_AURA_MOD_CONFUSE);
+                creature->RemoveAurasByType(SPELL_AURA_MOD_ROOT);
+                creature->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED);
+                creature->InterruptNonMeleeSpells(true);
+                creature->RemoveAllGameObjects();
+                creature->CombatStop();
+                creature->ClearComboPoints();
+                creature->ClearComboPointHolders();
+            }
+
+            if (creature->IsInGrid())
+                petmap->RemoveFromMap(creature, false);
+        }
+    }
+}
+void bot_ai::UnsummonPet(bool save)
+{
+    UnsummonCreature(botPet, save);
+}
+
+void bot_ai::ResummonCreature(Creature* creature)
+{
+    if (creature)
+    {
+        if (creature->FindMap())
+            creature->ResetMap();
+        creature->SetMap(me->GetMap());
+
+        Position pos;
+        bot_pet_ai* petai = creature->GetBotPetAI();
+        if (petai)
+            petai->CalculatePetsOwnerFollowPosition(pos);
+        else
+            pos.Relocate(me);
+
+        creature->Relocate(pos);
+        me->GetMap()->AddToMap(creature);
+
+        if (petai)
+            petai->canUpdate = true;
+    }
+}
+void bot_ai::ResummonPet()
+{
+    ResummonCreature(botPet);
 }
 
 void bot_ai::MoveInLineOfSight(Unit* /*u*/)
@@ -18409,7 +18486,7 @@ bool bot_ai::FinishTeleport(bool reset)
         if (!map || !master->IsAlive() || master->GetBotMgr()->RestrictBots(me, true))
         {
             //ChatHandler ch(master->GetSession());
-            //ch.PSendSysMessage("Your bot %s cannot teleport to you. Restricted bot access on this map...", me->GetName().c_str());
+            //ch.PSendSysMessage("Your bot {} cannot teleport to you. Restricted bot access on this map...", me->GetName());
             teleFinishEvent = new TeleportFinishEvent(this, reset);
             Events.AddEvent(teleFinishEvent, Events.CalculateTime(5000));
             return;
@@ -18439,6 +18516,7 @@ bool bot_ai::FinishTeleport(bool reset)
             this->Reset();
         //bot->SetAI(oldAI);
         //me->IsAIEnabled = true;
+        ResummonAll();
         canUpdate = true;
         outdoorsTimer = 0;
 
@@ -19121,7 +19199,6 @@ void bot_ai::OnBotEnterVehicle(Vehicle const* vehicle)
 {
     if (VehicleSeatEntry const* seat = vehicle->GetSeatForPassenger(me))
     {
-        UnsummonAll();
         if (seat->m_flags & VEHICLE_SEAT_FLAG_CAN_CONTROL)
         {
             vehicle->GetBase()->SetFaction(master->GetFaction());
@@ -19143,6 +19220,7 @@ void bot_ai::OnBotEnterVehicle(Vehicle const* vehicle)
                 case CREATURE_OCULUS_DRAKE_RUBY:
                 case CREATURE_OCULUS_DRAKE_EMERALD:
                 case CREATURE_OCULUS_DRAKE_AMBER:
+                    UnsummonAll(false);
                     vehicle->GetBase()->SetCanFly(true);
                     vehicle->GetBase()->SetDisableGravity(true);
                     break;
