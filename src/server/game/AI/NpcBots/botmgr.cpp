@@ -53,6 +53,7 @@ static std::list<BotMgr::delayed_teleport_callback_type> delayed_bot_teleports;
 //config
 uint8 _basefollowdist;
 uint8 _maxClassNpcBots;
+uint8 _maxAccountNpcBots;
 uint8 _xpReductionAmount;
 uint8 _xpReductionStartingNumber;
 uint8 _mountLevel60;
@@ -312,6 +313,7 @@ void BotMgr::LoadConfig(bool reload)
     _enableNpcBots                  = sConfigMgr->GetBoolDefault("NpcBot.Enable", true);
     _logToDB                        = sConfigMgr->GetBoolDefault("NpcBot.LogToDB", true);
     _maxClassNpcBots                = sConfigMgr->GetIntDefault("NpcBot.MaxBotsPerClass", 1);
+    _maxAccountNpcBots              = sConfigMgr->GetIntDefault("NpcBot.MaxBotsPerAccount", 0);
     _filterRaces                    = sConfigMgr->GetBoolDefault("NpcBot.Botgiver.FilterRaces", false);
     _basefollowdist                 = sConfigMgr->GetIntDefault("NpcBot.BaseFollowDistance", 30);
     _xpReductionAmount              = sConfigMgr->GetIntDefault("NpcBot.XpReduction.Amount", 0);
@@ -902,6 +904,10 @@ bool BotMgr::IsBotHKAchievementsEnabled()
 uint8 BotMgr::GetMaxClassBots()
 {
     return _maxClassNpcBots;
+}
+uint8 BotMgr::GetMaxAccountBots()
+{
+    return _maxAccountNpcBots;
 }
 uint8 BotMgr::GetHealTargetIconFlags()
 {
@@ -1646,9 +1652,11 @@ void BotMgr::CleanupsBeforeBotDelete(Creature* bot)
     //bot->SetOwnerGUID(ObjectGuid::Empty);
     //_owner->m_Controlled.erase(bot);
     bot->SetControlledByPlayer(false);
+    //bot->RemoveUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
     //bot->RemoveUnitFlag(UNIT_FLAG_PVP_ATTACKABLE);
     bot->SetByteValue(UNIT_FIELD_BYTES_2, 1, 0);
     bot->SetCreator(nullptr);
+    //bot->SetCreatorGUID(ObjectGuid::Empty);
 
     Map* map = bot->FindMap();
     if (!map || map->IsDungeon())
@@ -1808,8 +1816,10 @@ BotAddResult BotMgr::AddBot(Creature* bot)
     //ASSERT(!bot->GetOwnerGUID());
     //bot->SetOwnerGUID(_owner->GetGUID());
     bot->SetCreator(_owner); //needed in case of FFAPVP
+    //bot->SetCreatorGUID(_owner->GetGUID());
     //_owner->m_Controlled.insert(bot);
     bot->SetControlledByPlayer(true);
+    //bot->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
     bot->SetByteValue(UNIT_FIELD_BYTES_2, 1, _owner->GetByteValue(UNIT_FIELD_BYTES_2, 1));
     bot->SetFaction(_owner->GetFaction());
     bot->SetPhaseMask(_owner->GetPhaseMask(), true);
