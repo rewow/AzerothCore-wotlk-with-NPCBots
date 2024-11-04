@@ -18243,7 +18243,7 @@ void bot_ai::CommonTimers(uint32 diff)
                 stuckWpId = _travel_node_cur->GetWPId();
             else {
                 if (stuckWpId == _travel_node_cur->GetWPId()) {
-                    LOG_ERROR("server.loading", "Bot stuck! Bot {} id {} stuckWpId: {} TELEPORTING to node {} ('{}')",
+                    BOT_LOG_ERROR("server.loading", "Bot stuck! Bot {} id {} stuckWpId: {} TELEPORTING to node {} ('{}')",
                         me->GetName().c_str(), me->GetEntry(), stuckWpId, _travel_node_cur->GetWPId(), _travel_node_cur->GetName().c_str());
                     stuckWpId = _travel_node_cur->GetWPId();
                     me->CastSpell(me, WANDERER_HEARTHSTONE);
