@@ -34,8 +34,8 @@ enum BattlegroundTypeId : uint8;
 enum CurrentSpellTypes : uint8;
 enum DamageEffectType : uint8;
 
-constexpr size_t TargetIconNamesCacheSize = 8u; // Group.h TARGETICONCOUNT
-constexpr size_t BracketsCount = DEFAULT_MAX_LEVEL / 10 + 1; //0-9, 10-19, 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, 80-83
+constexpr size_t TARGET_ICON_NAMES_CACHE_SIZE = 8u; // Group.h TARGETICONCOUNT
+constexpr size_t BRACKETS_COUNT = DEFAULT_MAX_LEVEL / 10 + 1; //0-9, 10-19, 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, 80-83
 
 enum BotMgrDataFlags : uint32
 {
@@ -96,9 +96,10 @@ enum BotAttackAngle
 
 typedef std::unordered_map<ObjectGuid /*guid*/, Creature* /*bot*/> BotMap;
 template<typename U>
-using BotBrackets = std::array<U, BracketsCount>;
+using BotBrackets = std::array<U, BRACKETS_COUNT>;
 typedef BotBrackets<uint8> LvlBrackets;
 typedef BotBrackets<uint32> PctBrackets;
+typedef BotBrackets<uint32> ItemLvlBrackets;
 
 class AC_GAME_API BotMgr
 {
@@ -174,6 +175,7 @@ class AC_GAME_API BotMgr
         static float GetBotWandererSpeedMod();
         static float GetBotWandererXPGainMod();
         static PctBrackets GetBotWandererLevelBrackets();
+        static uint32 GetBotWandererMaxItemLevel(uint8 level);
         static float GetBotDamageModByClass(uint8 botclass);
         static float GetBotDamageModByLevel(uint8 botlevel);
         static float GetBotHealingModByLevel(uint8 botlevel);
@@ -207,12 +209,14 @@ class AC_GAME_API BotMgr
         static void OnBotOwnerEnterVehicle(Player const* passenger, Vehicle const* vehicle);
         static void OnBotOwnerExitVehicle(Player const* passenger, Vehicle const* vehicle);
         static void OnBotPartyEngage(Player const* owner);
+        static void OnBotAttackStop(Creature const* bot, Unit const* target);
         //mod hooks
         static void ApplyBotEffectMods(Unit const* caster, SpellInfo const* spellInfo, uint8 effIndex, float& value);
         static void ApplyBotThreatMods(Unit const* attacker, SpellInfo const* spellInfo, float& threat);
         static void ApplyBotEffectValueMultiplierMods(Unit const* caster, SpellInfo const* spellInfo, SpellEffIndex effIndex, float& multiplier);
         static float GetBotDamageTakenMod(Creature const* bot, bool magic);
         static int32 GetBotStat(Creature const* bot, BotStatMods stat);
+        static int32 GetBotStat(Creature const* bot, Stats stat);
         static float GetBotResilience(Creature const* botOrPet);
 
         void LoadData();
@@ -257,6 +261,7 @@ class AC_GAME_API BotMgr
         static uint8 GetBotPlayerClass(Creature const* bot);
         static uint8 GetBotPlayerRace(Creature const* bot);
         static uint8 GetBotEquipmentClass(uint8 bot_class);
+        static BotStatMods GetBotStatModByUnitStat(Stats stat);
 
         std::string GetTargetIconString(uint8 icon_idx) const;
 
@@ -361,7 +366,7 @@ class AC_GAME_API BotMgr
 
         AoeSpotsVec _aoespots;
 
-        std::array<std::string, TargetIconNamesCacheSize> _targetIconNamesCache;
+        std::array<std::string, TARGET_ICON_NAMES_CACHE_SIZE> _targetIconNamesCache;
 };
 
 void AddNpcBotScripts();

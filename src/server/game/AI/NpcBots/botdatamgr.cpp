@@ -354,7 +354,7 @@ private:
             {
                 case EXPANSION_CLASSIC:                max_expansion_level = 60;                break;
                 case EXPANSION_THE_BURNING_CRUSADE:    max_expansion_level = 70;                break;
-                case EXPANSION_WRATH_OF_THE_LICH_KING: max_expansion_level = 70;                break;
+                case EXPANSION_WRATH_OF_THE_LICH_KING: max_expansion_level = 80;                break;
                 default:                               max_expansion_level = DEFAULT_MAX_LEVEL; break;
             }
 
@@ -574,14 +574,14 @@ public:
             return false;
 
         uint32 total_bots_in_brackets = 0;
-        for (size_t k = 0; k < BracketsCount; ++k)
+        for (size_t k = 0; k < BRACKETS_COUNT; ++k)
         {
             if (!bracketPcts[k])
                 continue;
             bots_per_bracket[k] = CalculatePct(count, bracketPcts[k]);
             total_bots_in_brackets += bots_per_bracket[k];
         }
-        for (int32 j = BracketsCount - 1; j >= 0; --j)
+        for (int32 j = BRACKETS_COUNT - 1; j >= 0; --j)
         {
             if (bots_per_bracket[j])
             {
@@ -592,7 +592,7 @@ public:
 
         std::vector<uint8> brackets_shuffled;
         brackets_shuffled.reserve(count);
-        for (uint8 bracket = 0; bracket < BracketsCount; ++bracket)
+        for (uint8 bracket = 0; bracket < BRACKETS_COUNT; ++bracket)
         {
             while (bots_per_bracket[bracket])
             {
@@ -1236,12 +1236,29 @@ void BotDataMgr::LoadWanderMap(bool reload, bool force_all_maps)
             flags &= ~nonbg_flags;
         }
 
-        const uint32 conflicting_flags_1 = AsUnderlyingType(BotWPFlags::BOTWP_FLAG_ALLIANCE_ONLY) | AsUnderlyingType(BotWPFlags::BOTWP_FLAG_HORDE_ONLY);
-        if ((flags & conflicting_flags_1) == conflicting_flags_1)
+        const std::array conflicting_flags{
+            std::pair{BotWPFlags::BOTWP_FLAG_ALLIANCE_ONLY, BotWPFlags::BOTWP_FLAG_HORDE_ONLY },
+            std::pair{BotWPFlags::BOTWP_FLAG_CAN_BACKTRACK_FROM, BotWPFlags::BOTWP_FLAG_MOVEMENT_FORCE_JUMP_END },
+            std::pair{BotWPFlags::BOTWP_FLAG_BG_MISC_OBJECTIVE_1, BotWPFlags::BOTWP_FLAG_BG_MISC_OBJECTIVE_2 },
+            std::pair{BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_1, BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_2 },
+            std::pair{BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_1, BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_3 },
+            std::pair{BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_1, BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_4 },
+            std::pair{BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_1, BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_5 },
+            std::pair{BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_2, BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_3 },
+            std::pair{BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_2, BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_4 },
+            std::pair{BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_2, BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_5 },
+            std::pair{BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_3, BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_4 },
+            std::pair{BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_3, BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_5 },
+            std::pair{BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_4, BotWPFlags::BOTWP_FLAG_BG_OPTIONAL_PICKUP_5 },
+        };
+        for (std::pair<BotWPFlags, BotWPFlags> const& p : conflicting_flags)
         {
-            BOT_LOG_WARN("server.loading", "WP {} has conflicting flags {}+{}! Removing both...",
-                id, AsUnderlyingType(BotWPFlags::BOTWP_FLAG_ALLIANCE_ONLY), AsUnderlyingType(BotWPFlags::BOTWP_FLAG_HORDE_ONLY));
-            flags &= ~conflicting_flags_1;
+            const uint32 cflags = AsUnderlyingType(p.first) | AsUnderlyingType(p.second);
+            if ((flags & cflags) == cflags)
+            {
+                BOT_LOG_WARN("server.loading", "WP {} has conflicting flags {}+{}! Removing both...", id, AsUnderlyingType(p.first), AsUnderlyingType(p.second));
+                flags &= ~cflags;
+            }
         }
 
         if (!force_all_maps && mapEntry->IsContinent() && !BotMgr::IsBotGenerationEnabledWorldMapId(mapId))
@@ -1569,7 +1586,14 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
     uint32 minteamplayers = bg_template->GetMinPlayersPerTeam();
     uint32 maxteamplayers = bg_template->GetMaxPlayersPerTeam();
 
-    RoundToInterval(tarteamplayers, minteamplayers, maxteamplayers);
+    uint32 normalCount = tarteamplayers;
+    RoundToInterval(normalCount, minteamplayers, maxteamplayers);
+    if (tarteamplayers != normalCount)
+    {
+        BOT_LOG_ERROR("npcbots", "NpcBot.WanderingBots.BG.TargetTeamPlayersCount value {} for BG {} '{}' is out of bounds ({}-{})! Normalized to {}!",
+            tarteamplayers, uint32(bgTypeId), bg_template->GetName(), minteamplayers, maxteamplayers, normalCount);
+        tarteamplayers = normalCount;
+    }
 
     uint32 queued_players_a = 0;
     uint32 queued_players_h = 0;
@@ -2206,11 +2230,18 @@ Item* BotDataMgr::GenerateWanderingBotItem(uint8 slot, uint8 botclass, uint8 lev
     {
         ItemIdVector validVec;
         validVec.reserve(itemIdVec->size());
-        for (uint32 iid : *itemIdVec)
+        uint32 maxItemLevel = BotMgr::GetBotWandererMaxItemLevel(level);
+        for (uint32 maxLvl : { maxItemLevel, static_cast<decltype(maxItemLevel)>(0) })
         {
-            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(iid);
-            if (check(proto))
-                validVec.push_back(iid);
+            if (!validVec.empty())
+                break;
+
+            for (uint32 iid : *itemIdVec)
+            {
+                ItemTemplate const* proto = sObjectMgr->GetItemTemplate(iid);
+                if ((!maxLvl || proto->ItemLevel <= maxLvl) && check(proto))
+                    validVec.push_back(iid);
+            }
         }
 
         if (!validVec.empty())
