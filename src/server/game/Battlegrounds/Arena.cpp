@@ -27,6 +27,12 @@
 #include "WorldSession.h"
 //#include "WorldStatePackets.h"
 
+// Ornfelt: npcbot
+#include "bot_ai.h"
+#include "botdatamgr.h"
+#include "botmgr.h"
+//end npcbot
+
 void ArenaScore::AppendToPacket(WorldPacket& data)
 {
     data << PlayerGuid;
@@ -138,22 +144,49 @@ void Arena::AddPlayer(Player* player)
 }
 
 //npcbot
+//void Arena::AddBot(Creature* bot)
+//{
+//    ASSERT(bot->IsNPCBot() && !bot->IsFreeBot());
+//
+//    bool const isInBattleground = IsPlayerInBattleground(bot->GetGUID());
+//    Battleground::AddBot(bot);
+//    TeamId botteamid = bot->GetBotOwner()->GetBgTeamId();
+//
+//    if (!isInBattleground)
+//        BotScores[bot->GetEntry()] = new ArenaScore(bot->GetGUID(), botteamid);
+//
+//    //No flags - handled by AI
+//
+//    UpdateArenaWorldState();
+//}
+//end npcbot
+
+// Ornfelt: npcbot
 void Arena::AddBot(Creature* bot)
 {
-    ASSERT(bot->IsNPCBot() && !bot->IsFreeBot());
+    ObjectGuid guid = bot->GetGUID();
+    TeamId teamId = BotDataMgr::GetTeamIdForFaction(bot->GetFaction());
 
-    bool const isInBattleground = IsPlayerInBattleground(bot->GetGUID());
     Battleground::AddBot(bot);
-    TeamId botteamid = bot->GetBotOwner()->GetBgTeamId();
+    PlayerScores.emplace(bot->GetGUID().GetCounter(), new ArenaScore(bot->GetGUID(), teamId));
 
-    if (!isInBattleground)
-        BotScores[bot->GetEntry()] = new ArenaScore(bot->GetGUID(), botteamid);
-
-    //No flags - handled by AI
+    if (teamId == TEAM_ALLIANCE) // gold
+    {
+        if (teamId == TEAM_HORDE)
+            bot->CastSpell(bot, SPELL_HORDE_GOLD_FLAG, true);
+        else
+            bot->CastSpell(bot, SPELL_ALLIANCE_GOLD_FLAG, true);
+    }
+    else // green
+    {
+        if (teamId == TEAM_HORDE)
+            bot->CastSpell(bot, SPELL_HORDE_GREEN_FLAG, true);
+        else
+            bot->CastSpell(bot, SPELL_ALLIANCE_GREEN_FLAG, true);
+    }
 
     UpdateArenaWorldState();
 }
-//end npcbot
 
 void Arena::RemovePlayer(Player* /*player*/)
 {
