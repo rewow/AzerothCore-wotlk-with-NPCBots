@@ -74,6 +74,9 @@ uint32 _npcBotEngageDelayDPS_default;
 uint32 _npcBotEngageDelayHeal_default;
 uint32 _npcBotOwnerExpireTime;
 uint32 _desiredWanderingBotsCount;
+uint32 _killrewardWandererMoneyBase;
+uint32 _killrewardWandererItemCount;
+uint32 _killrewardWandererItemQuality;
 uint32 _targetBGPlayersPerTeamCount_AV;
 uint32 _targetBGPlayersPerTeamCount_WS;
 uint32 _targetBGPlayersPerTeamCount_AB;
@@ -82,6 +85,10 @@ uint32 _targetBGPlayersPerTeamCount_SA;
 uint32 _targetBGPlayersPerTeamCount_IC;
 bool _enableNpcBots;
 bool _logToDB;
+bool _xpReductionBlizzlikeEnable;
+bool _xpReductionBlizzlikeGroupOnly;
+bool _moneyLootShareEnable;
+bool _moneyLootShareGroupOnly;
 bool _enableNpcBotsDungeons;
 bool _enableNpcBotsRaids;
 bool _enableNpcBotsBGs;
@@ -329,6 +336,10 @@ void BotMgr::LoadConfig(bool reload)
     _basefollowdist                 = sConfigMgr->GetIntDefault("NpcBot.BaseFollowDistance", 30);
     _xpReductionAmount              = sConfigMgr->GetIntDefault("NpcBot.XpReduction.Amount", 0);
     _xpReductionStartingNumber      = sConfigMgr->GetIntDefault("NpcBot.XpReduction.StartingNumber", 2);
+    _xpReductionBlizzlikeEnable     = sConfigMgr->GetBoolDefault("NpcBot.XpReduction.Blizzlike.Enable", true);
+    _xpReductionBlizzlikeGroupOnly  = sConfigMgr->GetBoolDefault("NpcBot.XpReduction.Blizzlike.GroupOnly", false);
+    _moneyLootShareEnable           = sConfigMgr->GetBoolDefault("NpcBot.MoneyShare.Enable", false);
+    _moneyLootShareGroupOnly        = sConfigMgr->GetBoolDefault("NpcBot.MoneyShare.GroupOnly", false);
     _mountLevel60                   = sConfigMgr->GetIntDefault("NpcBot.MountLevel.60", 20);
     _mountLevel100                  = sConfigMgr->GetIntDefault("NpcBot.MountLevel.100", 40);
     _healTargetIconFlags            = sConfigMgr->GetIntDefault("NpcBot.HealTargetIconMask", 0);
@@ -441,6 +452,9 @@ void BotMgr::LoadConfig(bool reload)
     _botStatLimits_block            = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Block", 95.0f);
     _botStatLimits_crit             = sConfigMgr->GetFloatDefault("NpcBot.Stats.Limits.Crit", 95.0f);
     _desiredWanderingBotsCount      = sConfigMgr->GetIntDefault("NpcBot.WanderingBots.Continents.Count", 0);
+    _killrewardWandererMoneyBase    = sConfigMgr->GetIntDefault("NpcBot.WanderingBots.KillReward.Money", 0);
+    _killrewardWandererItemCount    = sConfigMgr->GetIntDefault("NpcBot.WanderingBots.KillReward.ItemCount", 0);
+    _killrewardWandererItemQuality  = sConfigMgr->GetIntDefault("NpcBot.WanderingBots.KillReward.ItemQuality", int(ITEM_QUALITY_RARE));
     _mult_xpgain_wanderer           = sConfigMgr->GetFloatDefault("NpcBot.WanderingBots.Continents.XPGain", 1.0f);
     _enableWanderingBotsBG          = sConfigMgr->GetBoolDefault("NpcBot.WanderingBots.BG.Enable", false);
     _enableConfigLevelCapBG         = sConfigMgr->GetBoolDefault("NpcBot.WanderingBots.BG.CapLevel", false);
@@ -649,6 +663,8 @@ void BotMgr::LoadConfig(bool reload)
     RoundToInterval(_mult_dmg_seawitch, 0.1f, 10.f);
     RoundToInterval(_mult_dmg_cryptlord, 0.1f, 10.f);
     RoundToInterval(_bothk_rate_honor, 0.1f, 10.f);
+    RoundToInterval(_killrewardWandererItemCount, uint32(0), uint32(MAX_NR_LOOT_ITEMS));
+    RoundToInterval(_killrewardWandererItemQuality, uint32(ITEM_QUALITY_POOR), uint32(ITEM_QUALITY_HEIRLOOM));
 }
 
 void BotMgr::ResolveConfigConflicts()
@@ -1096,6 +1112,23 @@ uint8 BotMgr::GetNpcBotXpReduction()
 uint8 BotMgr::GetNpcBotXpReductionStartingNumber()
 {
     return _xpReductionStartingNumber;
+}
+bool BotMgr::GetNpcBotXpReductionBlizzlikeEnabled()
+{
+    return _xpReductionBlizzlikeEnable;
+}
+bool BotMgr::GetNpcBotXpReductionBlizzlikeGroupOnly()
+{
+    return _xpReductionBlizzlikeGroupOnly;
+}
+
+bool BotMgr::GetNpcBotMoneyShareEnabled()
+{
+    return _moneyLootShareEnable;
+}
+bool BotMgr::GetNpcBotMoneyShareGroupOnly()
+{
+    return _moneyLootShareGroupOnly;
 }
 
 uint8 BotMgr::GetNpcBotMountLevel60()
@@ -1574,6 +1607,10 @@ void BotMgr::_teleportBot(Creature* bot, Map* newMap, float x, float y, float z,
     bot->m_Events.KillAllEvents(false);
 
     BotLogger::Log(NPCBOT_LOG_TELEPORT_START, bot, bot->IsInGrid(), bot->IsWandererBot(), botai->CanAppearInWorld(), newMap->GetId(), bool(reset));
+
+    if (Map* bmap = bot->FindMap())
+        if (bmap->GetEntry()->Instanceable() && bot->IsInGrid())
+            bmap->RemoveFromMap(bot, false);
 
     BotMgr::AddDelayedTeleportCallback([bot, botai, newMap, x, y, z, ori, quick, reset]() {
         if (bot->GetVehicle())
@@ -3183,6 +3220,18 @@ PctBrackets BotMgr::GetBotWandererLevelBrackets()
 uint32 BotMgr::GetBotWandererMaxItemLevel(uint8 level)
 {
     return _botwanderer_itemlvl_level_brackets[std::min<size_t>(BRACKETS_COUNT - 1, level / 10)];
+}
+uint32 BotMgr::GetBotWandererKillRewardMoney()
+{
+    return _killrewardWandererMoneyBase;
+}
+uint32 BotMgr::GetBotWandererKillRewardItemMaxCount()
+{
+    return _killrewardWandererItemCount;
+}
+uint32 BotMgr::GetBotWandererKillRewardItemMaxQuality()
+{
+    return _killrewardWandererItemQuality;
 }
 float BotMgr::GetBotDamageModByClass(uint8 botclass)
 {

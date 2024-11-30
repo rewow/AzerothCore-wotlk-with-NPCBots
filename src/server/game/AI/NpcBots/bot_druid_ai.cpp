@@ -674,13 +674,11 @@ public:
             //Shapeshift into bear if needed
             //bear is lvl 10, bash is lvl 14
             //Retreat is triggered only if hit (SpellHitTarget)
-            if (IsSpellReady(BASH_1, diff) && !CCed(mytar, !mytar->IsNonMeleeSpellCast(false,false,true)) &&
-                mytar->IsWithinMeleeRange(me))
+            if (me->IsInCombat() && IsSpellReady(BASH_1, diff) && !CCed(mytar, !mytar->IsNonMeleeSpellCast(false,false,true)) && mytar->IsWithinMeleeRange(me))
             {
-                if ((_form == DRUID_BEAR_FORM && rage >= acost(BASH_1)) ||
-                    (IsSpellReady(BEAR_FORM_1, diff, false) && doCast(me, GetSpell(BEAR_FORM_1))))
+                if (_form == DRUID_BEAR_FORM || (IsSpellReady(BEAR_FORM_1, diff, false) && doCast(me, GetSpell(BEAR_FORM_1))))
                 {
-                    if (doCast(mytar, GetSpell(BASH_1)))
+                    if (rage >= acost(BASH_1) && doCast(mytar, GetSpell(BASH_1)))
                         return;
                 }
             }
@@ -689,7 +687,7 @@ public:
             uint32 form_base_spellid = _baseSpellForShapeshift(need_form);
             if (_form == need_form || !form_base_spellid || (IsSpellReady(form_base_spellid, diff, false) && doCast(me, GetSpell(form_base_spellid))))
             {
-                switch (need_form ? need_form : _form)
+                switch (need_form)
                 {
                     case DRUID_BEAR_FORM:
                         doBearActions(mytar, diff);
