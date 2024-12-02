@@ -1609,7 +1609,8 @@ void BotMgr::_teleportBot(Creature* bot, Map* newMap, float x, float y, float z,
     BotLogger::Log(NPCBOT_LOG_TELEPORT_START, bot, bot->IsInGrid(), bot->IsWandererBot(), botai->CanAppearInWorld(), newMap->GetId(), bool(reset));
 
     if (Map* bmap = bot->FindMap())
-        if (bmap->GetEntry()->Instanceable() && bot->IsInGrid())
+        //if (bmap->GetEntry()->Instanceable() && bot->IsInGrid())
+        if (bmap->GetEntry()->Instanceable() && bot->IsInGrid() && !bmap->GetEntry()->IsBattlegroundOrArena())
             bmap->RemoveFromMap(bot, false);
 
     BotMgr::AddDelayedTeleportCallback([bot, botai, newMap, x, y, z, ori, quick, reset]() {
