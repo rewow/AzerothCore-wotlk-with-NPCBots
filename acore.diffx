@@ -4,7 +4,7 @@ index 725842fa3..6b3d10793 100644
 +++ b/data/sql/custom/db_world/2023_06_09_00_creature_template_npcbot_wander_nodes.sql
 @@ -3,2625 +3,3668 @@ SET @WP_START = 2418;
  SET @WP_END   = 5038;
-
+ 
  DELETE FROM `creature_template_npcbot_wander_nodes` WHERE `id` BETWEEN @WP_START AND @WP_END;
 +-- INSERT INTO `creature_template_npcbot_wander_nodes`(`id`,`name`,`mapid`,`zoneid`,`areaid`,`minlevel`,`maxlevel`,`flags`,`x`,`y`,`z`,`o`,`links`) VALUES
 +-- ('2418','hellfire001','530','3483','3804','60','63','0','-88.1661','1757.73','61.4158','2.30551','2419:0 2422:0 '),
@@ -6292,11 +6292,103 @@ index 725842fa3..6b3d10793 100644
 +UPDATE `creature_template_npcbot_wander_nodes` SET `links`='2507:0 3356:0 3357:0 ' WHERE (`id`='2506');
 +UPDATE `creature_template_npcbot_wander_nodes` SET `links`='3358:0 3359:0 2506:0 2508:0 ' WHERE (`id`='2507');
 +UPDATE `creature_template_npcbot_wander_nodes` SET `links`='2507:0 3360:0 3361:0 ' WHERE (`id`='2508');
+diff --git a/src/server/database/Database/DatabaseWorkerPool.cpp b/src/server/database/Database/DatabaseWorkerPool.cpp
+index 0fd20d4b4..b79b55b85 100644
+--- a/src/server/database/Database/DatabaseWorkerPool.cpp
++++ b/src/server/database/Database/DatabaseWorkerPool.cpp
+@@ -59,11 +59,15 @@ DatabaseWorkerPool<T>::DatabaseWorkerPool() :
+ {
+     WPFatal(mysql_thread_safe(), "Used MySQL library isn't thread-safe.");
+ 
++#if !defined(MARIADB_VERSION_ID) || MARIADB_VERSION_ID < 100600
+     bool isSupportClientDB = mysql_get_client_version() >= MIN_MYSQL_CLIENT_VERSION;
+     bool isSameClientDB = mysql_get_client_version() == MYSQL_VERSION_ID;
++#else // MariaDB 10.6+
++    bool isSupportClientDB = mysql_get_client_version() >= MIN_MYSQL_CLIENT_VERSION;
++    bool isSameClientDB    = true; // Client version 3.2.3?
++#endif
+ 
+-    WPFatal(isSupportClientDB, "AzerothCore does not support MySQL versions below 8.0\n\nFound version: {} / {}. Server compiled with: {}.\nSearch the wiki for ACE00043 in Common Errors (https://www.azerothcore.org/wiki/common-errors#ace00043).",
+-        mysql_get_client_info(), mysql_get_client_version(), MYSQL_VERSION_ID);
++    //WPFatal(isSupportClientDB, "AzerothCore does not support MySQL versions below 5.7 or MariaDB versions below 10.5.\n\nFound version: {} / {}. Server compiled with: {}.\nSearch the wiki for ACE00043 in Common Errors (https://www.azerothcore.org/wiki/common-errors#ace00043).",
+     WPFatal(isSameClientDB, "Used MySQL library version ({} id {}) does not match the version id used to compile AzerothCore (id {}).\nSearch the wiki for ACE00046 in Common Errors (https://www.azerothcore.org/wiki/common-errors#ace00046).",
+         mysql_get_client_info(), mysql_get_client_version(), MYSQL_VERSION_ID);
+ }
+@@ -373,6 +377,8 @@ void DatabaseWorkerPool<T>::KeepAlive()
+ *
+ * DatabaseIncompatibleVersion("8.0.35") => false
+ * DatabaseIncompatibleVersion("5.6.6") => true
++* DatabaseIncompatibleVersion("5.5.5-10.5.5-MariaDB") => false
++* DatabaseIncompatibleVersion("5.5.5-10.4.0-MariaDB") => true
+ *
+ * Adapted from stackoverflow response
+ * https://stackoverflow.com/a/2941508
+@@ -403,6 +409,17 @@ bool DatabaseIncompatibleVersion(std::string const mysqlVersion)
+     uint8 offset = 0;
+     std::string minVersion = MIN_MYSQL_SERVER_VERSION;
+ 
++    // If the version string contains "MariaDB", use that
++    if (mysqlVersion.find("MariaDB") != std::string::npos)
++    {
++        // All MariaDB 10.X versions have a prefix of 5.5.5 from the
++        // mysql_get_server_info() function. To make matters more
++        // annoying, this is removed in MariaDB 11.X
++        if (mysqlVersion.rfind("5.5.5-", 0) == 0)
++            offset = 6;
++        minVersion = MIN_MARIADB_SERVER_VERSION;
++    }
++
+     auto parsedMySQLVersion = parse(mysqlVersion.substr(offset));
+     auto parsedMinVersion = parse(minVersion);
+ 
+@@ -437,7 +454,7 @@ uint32 DatabaseWorkerPool<T>::OpenConnections(InternalIndex type, uint8 numConne
+         }
+         else if (DatabaseIncompatibleVersion(connection->GetServerInfo()))
+         {
+-            LOG_ERROR("sql.driver", "AzerothCore does not support MySQL versions below 8.0\n\nFound server version: {}. Server compiled with: {}.",
++            LOG_ERROR("sql.driver", "AzerothCore does not support MySQL versions below 5.7 or MariaDB versions below 10.5.\n\nFound server version: {}. Server compiled with: {}.",
+                 connection->GetServerInfo(), MYSQL_VERSION_ID);
+             return 1;
+         }
 diff --git a/src/server/database/Database/DatabaseWorkerPool.h b/src/server/database/Database/DatabaseWorkerPool.h
-index fb11b2a4a..a4e7a4075 100644
+index fb11b2a4a..0a78e8db6 100644
 --- a/src/server/database/Database/DatabaseWorkerPool.h
 +++ b/src/server/database/Database/DatabaseWorkerPool.h
-@@ -209,7 +209,7 @@ public:
+@@ -26,17 +26,31 @@
+ 
+ /** @file DatabaseWorkerPool.h */
+ 
++/**
++* @def MIN_MYSQL_CLIENT_VERSION
++* The minimum MariaDB Client Version
++* MARIADB_VERSION_ID is defined if using libmariadbclient instead of libmysqlclient
++*/
++#if MARIADB_VERSION_ID >= 100600
++#define MIN_MYSQL_CLIENT_VERSION 30203u
++#else
+ /**
+ * @def MIN_MYSQL_CLIENT_VERSION
+ * The minimum MySQL Client Version
+ */
+-#define MIN_MYSQL_CLIENT_VERSION 80000u
++#define MIN_MYSQL_CLIENT_VERSION 50700u
++#endif
+ 
+ /**
+ * @def MIN_MYSQL_SERVER_VERSION
+ * The minimum MySQL Server Version
+ */
+-#define MIN_MYSQL_SERVER_VERSION "8.0.0"
++#define MIN_MYSQL_SERVER_VERSION "5.7.0"
++/**
++* @def MIN_MARIADB_SERVER_VERSION
++* The minimum MariaDB Server Version
++*/
++#define MIN_MARIADB_SERVER_VERSION "10.5.0"
+ 
+ template <typename T>
+ class ProducerConsumerQueue;
+@@ -209,7 +223,7 @@ public:
      void WarnAboutSyncQueries([[maybe_unused]] bool warn)
      {
  #ifdef ACORE_DEBUG
@@ -6304,22 +6396,87 @@ index fb11b2a4a..a4e7a4075 100644
 +        //_warnSyncQueries = warn;
  #endif
      }
-
+ 
+diff --git a/src/server/database/Database/MySQLConnection.cpp b/src/server/database/Database/MySQLConnection.cpp
+index e889ea65a..1ba5d6571 100644
+--- a/src/server/database/Database/MySQLConnection.cpp
++++ b/src/server/database/Database/MySQLConnection.cpp
+@@ -129,6 +129,7 @@ uint32 MySQLConnection::Open()
+ 
+     if (m_connectionInfo.ssl != "")
+     {
++#if !defined(MARIADB_VERSION_ID) && MYSQL_VERSION_ID >= 80000
+         mysql_ssl_mode opt_use_ssl = SSL_MODE_DISABLED;
+         if (m_connectionInfo.ssl == "ssl")
+         {
+@@ -136,6 +137,15 @@ uint32 MySQLConnection::Open()
+         }
+ 
+         mysql_options(mysqlInit, MYSQL_OPT_SSL_MODE, (char const*)&opt_use_ssl);
++#else
++        MySQLBool opt_use_ssl = MySQLBool(0);
++        if (m_connectionInfo.ssl == "ssl")
++        {
++            opt_use_ssl = MySQLBool(1);
++        }
++
++        mysql_options(mysqlInit, MYSQL_OPT_SSL_ENFORCE, (char const*)&opt_use_ssl);
++#endif
+     }
+ 
+     m_Mysql = reinterpret_cast<MySQLHandle*>(mysql_real_connect(mysqlInit, m_connectionInfo.host.c_str(), m_connectionInfo.user.c_str(),
+@@ -216,7 +226,7 @@ bool MySQLConnection::Execute(PreparedStatementBase* stmt)
+ 
+     uint32 _s = getMSTime();
+ 
+-#if MYSQL_VERSION_ID >= 80300
++#if !defined(MARIADB_VERSION_ID) && (MYSQL_VERSION_ID >= 80300)
+     if (mysql_stmt_bind_named_param(msql_STMT, msql_BIND, m_mStmt->GetParameterCount(), nullptr))
+ #else
+     if (mysql_stmt_bind_param(msql_STMT, msql_BIND))
+@@ -268,7 +278,8 @@ bool MySQLConnection::_Query(PreparedStatementBase* stmt, MySQLPreparedStatement
+ 
+     uint32 _s = getMSTime();
+ 
+-#if MYSQL_VERSION_ID >= 80300
++
++#if !defined(MARIADB_VERSION_ID) && (MYSQL_VERSION_ID >= 80300)
+     if (mysql_stmt_bind_named_param(msql_STMT, msql_BIND, m_mStmt->GetParameterCount(), nullptr))
+ #else
+     if (mysql_stmt_bind_param(msql_STMT, msql_BIND))
+diff --git a/src/server/database/Updater/DBUpdater.cpp b/src/server/database/Updater/DBUpdater.cpp
+index 3cc11a67e..1b268b60d 100644
+--- a/src/server/database/Updater/DBUpdater.cpp
++++ b/src/server/database/Updater/DBUpdater.cpp
+@@ -493,8 +493,13 @@ void DBUpdater<T>::ApplyFile(DatabaseWorkerPool<T>& pool, std::string const& hos
+     // Set max allowed packet to 1 GB
+     args.emplace_back("--max-allowed-packet=1GB");
+ 
++#if !defined(MARIADB_VERSION_ID) && MYSQL_VERSION_ID >= 80000
+     if (ssl == "ssl")
+         args.emplace_back("--ssl-mode=REQUIRED");
++#else
++    if (ssl == "ssl")
++        args.emplace_back("--ssl");
++#endif
+ 
+     // Execute sql file
+     args.emplace_back("-e");
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
-index cd0dddc76..b60eab9d9 100644
+index 73c0c0654..bc173c9d5 100644
 --- a/src/server/game/AI/NpcBots/bot_ai.cpp
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -592,6 +592,9 @@ void bot_ai::ResetBotAI(uint8 resetType)
+@@ -591,6 +591,9 @@ void bot_ai::ResetBotAI(uint8 resetType)
      _botCommandState = 0;
      _botAwaitState = BOT_AWAIT_NONE;
      _reviveTimer = 0;
 +    // Ornfelt: stuckTimer
 +    _stuckTimer = urand(3600000, 3700000); // Reset to ~1 Hour
 +    stuckWpId = 0;
-
+ 
      if (resetType & BOTAI_RESET_MASK_RESET_MASTER)
          master = reinterpret_cast<Player*>(me);
-@@ -2337,7 +2340,8 @@ void bot_ai::SetStats(bool force)
+@@ -2339,7 +2342,8 @@ void bot_ai::SetStats(bool force)
              if (me->GetMap()->IsBattlegroundOrArena())
                  BOT_LOG_DEBUG("npcbots", "BG bot {} id {} selected level {}...", me->GetName().c_str(), me->GetEntry(), uint32(_baseLevel));
              else
@@ -6329,7 +6486,7 @@ index cd0dddc76..b60eab9d9 100644
          }
          else if (me->GetMap()->GetEntry()->IsContinent())
          {
-@@ -2345,6 +2349,10 @@ void bot_ai::SetStats(bool force)
+@@ -2347,6 +2351,10 @@ void bot_ai::SetStats(bool force)
              mapmaxlevel += BotDataMgr::GetLevelBonusForBotRank(me->GetCreatureTemplate()->rank);
              //TODO: experience system for levelups
              mylevel = std::max<uint8>(mylevel, std::min<uint8>(_baseLevel + uint8(uint32(float(_killsCount) * BotMgr::GetBotWandererXPGainMod()) / (mylevel * 20)), mapmaxlevel));
@@ -6340,8 +6497,8 @@ index cd0dddc76..b60eab9d9 100644
          }
      }
      else
-@@ -2363,6 +2371,26 @@ void bot_ai::SetStats(bool force)
-
+@@ -2365,6 +2373,26 @@ void bot_ai::SetStats(bool force)
+ 
          me->SetLevel(mylevel);
          force = true; //reinit spells/passives/other
 +        // Ornfelt: don't level up, but log the "Dings"
@@ -6367,7 +6524,7 @@ index cd0dddc76..b60eab9d9 100644
      }
      if (force)
      {
-@@ -3805,6 +3833,10 @@ bool bot_ai::CanBotAttack(Unit const* target, int8 byspell, bool secondary) cons
+@@ -3833,6 +3861,10 @@ bool bot_ai::CanBotAttack(Unit const* target, int8 byspell, bool secondary) cons
              case 4952: case 17578: case 24792: case 30527: case 31143: case 31144: case 31146: // training dummy
              case 32541: case 32542: case 32543: case 32545: case 32546: case 32547: case 32666: case 32667: // training dummy
              case 7668: case 7669: case 7670: case 7671: // Blasted Lands servants
@@ -6378,18 +6535,18 @@ index cd0dddc76..b60eab9d9 100644
                  return false;
              case 21416: case 21709: case 21710: case 21711: // Shadowmoon Valley Broken element corruptors
                  if (target->HasAuraTypeWithMiscvalue(SPELL_AURA_SCHOOL_IMMUNITY, 127))
-@@ -5898,6 +5930,7 @@ uint32 bot_ai::_selectMountSpell() const
+@@ -5962,6 +5994,7 @@ uint32 bot_ai::_selectMountSpell() const
      {
          using MountArray = std::array<uint32, NUM_MOUNTS_PER_SPEED>;
-
+ 
 +        // Ornfelt: wanderer's cant fly
          bool can_fly = !IAmFree() ? master->CanFly() : false; //(!instt && me->GetMap()->GetEntry()->addon > 0);
          bool useSlowMount = can_fly ? (me->GetLevel() < 70 || maxMountSpeed < 220) : (me->GetLevel() < minLevel100 || maxMountSpeed < 80);
-
-@@ -16260,20 +16293,28 @@ void bot_ai::JustDied(Unit* u)
+ 
+@@ -16347,20 +16380,28 @@ void bot_ai::JustDied(Unit* u)
                  gr->SendUpdate();
      }
-
+ 
 +    // Ornfelt: don't tele to graveyard if arena
 +    //if (IsWanderer() && me->GetMap()->IsBattleground()) // Not needed
      if (IsWanderer() && me->GetMap()->IsBattlegroundOrArena())
@@ -6417,7 +6574,7 @@ index cd0dddc76..b60eab9d9 100644
              IsWanderer() ? "Wandering bot" : "Bot", me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
              (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
              u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-@@ -16323,7 +16364,8 @@ void bot_ai::KilledUnit(Unit* u)
+@@ -16413,7 +16454,8 @@ void bot_ai::KilledUnit(Unit* u)
          {
              if (IsWanderer())
              {
@@ -6427,7 +6584,7 @@ index cd0dddc76..b60eab9d9 100644
                      me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
                      (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
                      u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-@@ -16331,7 +16373,8 @@ void bot_ai::KilledUnit(Unit* u)
+@@ -16421,7 +16463,8 @@ void bot_ai::KilledUnit(Unit* u)
              }
              else if (u->IsNPCBot() && u->ToCreature()->GetBotAI()->IsWanderer())
              {
@@ -6437,9 +6594,9 @@ index cd0dddc76..b60eab9d9 100644
                      me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
                      u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
                      IsWanderer() ? _travel_node_cur->GetName().c_str() : "''");
-@@ -16340,7 +16383,9 @@ void bot_ai::KilledUnit(Unit* u)
+@@ -16430,7 +16473,9 @@ void bot_ai::KilledUnit(Unit* u)
      }
-
+ 
      //handle BG kill BvP, BvB, BvC
 -    if (me->GetMap()->IsBattleground())
 +    // Ornfelt: Fix arena
@@ -6448,10 +6605,10 @@ index cd0dddc76..b60eab9d9 100644
      {
          Battleground* bg = GetBG();
          //could be removed from BG
-@@ -18646,6 +18691,26 @@ void bot_ai::CommonTimers(uint32 diff)
-     if (IAmFree())
-         UpdateReviveTimer(diff);
-
+@@ -18761,6 +18806,26 @@ void bot_ai::CommonTimers(uint32 diff)
+             _rentTimer += diff;
+     }
+ 
 +    // Ornfelt: stucktimer
 +    if (IsWanderer()) {
 +        if (!stuckWpId)
@@ -6475,8 +6632,8 @@ index cd0dddc76..b60eab9d9 100644
      if (me->IsInWorld())
      {
          if (_wmoAreaUpdateTimer > diff) _wmoAreaUpdateTimer -= diff;
-@@ -18679,7 +18744,9 @@ void bot_ai::CommonTimers(uint32 diff)
-
+@@ -18794,7 +18859,9 @@ void bot_ai::CommonTimers(uint32 diff)
+ 
  void bot_ai::UpdateReviveTimer(uint32 diff)
  {
 -    if (me->IsAlive())
@@ -6484,10 +6641,10 @@ index cd0dddc76..b60eab9d9 100644
 +    //if (me->IsAlive())
 +    if (me->IsAlive() || me->GetMap()->IsBattleArena())
          return;
-
+ 
      if (_reviveTimer > diff)        _reviveTimer -= diff;
-@@ -18767,12 +18834,34 @@ void bot_ai::Evade()
-
+@@ -18882,12 +18949,34 @@ void bot_ai::Evade()
+ 
      if (IsWanderer())
      {
 +        // Ornfelt: fix blade's edge
@@ -6522,12 +6679,12 @@ index cd0dddc76..b60eab9d9 100644
 +                    me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), me->GetMapId(), _travel_node_cur->GetWPId(),
 +                    _travel_node_cur->GetName().c_str(), uint32(mapid), pos.ToString().c_str(), me->GetExactDist(pos));
 +            }
-
+ 
              evadeDelayTimer = 12000;
              me->CastSpell(me, WANDERER_HEARTHSTONE);
-@@ -18852,6 +18941,22 @@ void bot_ai::Evade()
+@@ -18967,6 +19056,22 @@ void bot_ai::Evade()
                  OnWanderNodeReached();
-
+ 
                  WanderNode const* nextNode = GetNextTravelNode(&pos, false);
 +
 +                // Ornfelt: Write position to file. Requires:
@@ -6548,10 +6705,10 @@ index cd0dddc76..b60eab9d9 100644
                  if (!nextNode)
                  {
                      BOT_LOG_FATAL("npcbots", "Bot {} ({}) is unable to get next travel node! cur {}, last {}, position: {}. BOT WAS DISABLED",
-@@ -20497,6 +20602,16 @@ void bot_ai::OnBotEnterBattleground()
+@@ -20617,6 +20722,16 @@ void bot_ai::OnBotEnterBattleground()
              }
          });
-
+ 
 +        // Ornfelt: Remove arena_prep since otherwise npcbots will be invisible until it's removed
 +        if (bg->isArena())
 +        {
@@ -6566,22 +6723,22 @@ index cd0dddc76..b60eab9d9 100644
          if (startNode)
          {
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
-index 4c5171122..c9dfe3e6b 100644
+index eaed68230..e99fb69c2 100644
 --- a/src/server/game/AI/NpcBots/bot_ai.h
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -726,6 +726,10 @@ class bot_ai : public CreatureAI
+@@ -727,6 +727,10 @@ class bot_ai : public CreatureAI
          uint32 _saveDisabledSpellsTimer;
          uint32 _saveMiscValuesTimer;
-
+ 
 +        // Ornfelt: stucktimer
 +        uint32 _stuckTimer;
 +        uint32 stuckWpId;
 +
          uint32 _lastZoneId, _lastAreaId, _lastWMOAreaId;
          uint32 _selfrez_spell_id;
-
+ 
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-index 1077a3140..0f740bc52 100644
+index cfe001537..f3a1e9941 100644
 --- a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -873,7 +873,9 @@ public:
@@ -6596,13 +6753,13 @@ index 1077a3140..0f740bc52 100644
              else if (HasRole(BOT_ROLE_HEAL))
                  SEAL = WISDOM ? WISDOM : LIGHT ? LIGHT : RIGHT;
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
-index 9e190ef76..57c835e8a 100644
+index cb22ff3b7..986538c37 100644
 --- a/src/server/game/AI/NpcBots/botdatamgr.cpp
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
 @@ -148,6 +148,18 @@ public:
              GroupQueueInfo const* my_gqi = qpm_citr != queue.m_QueuedPlayers.cend() ? qpm_citr->second : nullptr;
              Battleground* bg = my_gqi ? sBattlegroundMgr->GetBattleground(my_gqi->IsInvitedToBGInstanceGUID, _bgTypeId) : nullptr;
-
+ 
 +			// Ornfelt: Fix arena
 +            if (!bg)
 +            {
@@ -6621,7 +6778,7 @@ index 9e190ef76..57c835e8a 100644
 @@ -199,9 +211,25 @@ static void SpawnWandererBot(uint32 bot_id, WanderNode const* spawnLoc, NpcBotRe
      Map* map = sMapMgr->CreateBaseMap(spawnLoc->GetMapId());
      map->LoadGrid(spawnLoc->m_positionX, spawnLoc->m_positionY);
-
+ 
 -    BOT_LOG_DEBUG("npcbots", "Spawning wandering bot: {} ({}) class {} race {} fac {}, location: mapId {} {} ({})",
 -        bot_template.Name.c_str(), bot_id, uint32(bot_extras->bclass), uint32(bot_extras->race), bot_data->faction,
 -        spawnLoc->GetMapId(), spawnLoc->ToString().c_str(), spawnLoc->GetName().c_str());
@@ -6644,13 +6801,13 @@ index 9e190ef76..57c835e8a 100644
 +    if (map->GetEntry()->IsContinent())
 +        CharacterDatabase.DirectExecute("INSERT INTO characters_playermap(guid,account,name,class,race,level,gender,position_x,position_y,map,zone,extra_flags,online,taximask,innTriggerId) VALUES ({},1,\"{}\",{},{},{},{},{},{},{},{},64,1,'',1)",
 +                bot_id,bot_template.Name.c_str(),uint32(bot_extras->bclass),uint32(bot_extras->race),0,1,spawnLoc->m_positionX,spawnLoc->m_positionY,spawnLoc->GetMapId(),spawnLoc->GetZoneId());
-
+ 
      Creature* bot = new Creature();
      if (!bot->LoadBotCreatureFromDB(0, map, true, true, bot_id, &spawnPos))
-@@ -335,6 +363,9 @@ private:
+@@ -329,6 +357,9 @@ private:
          ASSERT(!level_nodes.empty());
          WanderNode const* spawnLoc = Bcore::Containers::SelectRandomContainerElement(level_nodes);
-
+ 
 +        // Ornfelt: Change wander bot spawnloc
 +        //WanderNode const* spawnLoc = level_nodes.at(0);
 +
@@ -6658,9 +6815,9 @@ index 9e190ef76..57c835e8a 100644
          //copy all fields
          bot_template = *orig_template;
 @@ -1715,7 +1746,9 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
-
+ 
      uint32 tarteamplayers = BotMgr::GetBGTargetTeamPlayersCount(bgTypeId);
-
+ 
 -    if (tarteamplayers == 0)
 +    // Ornfelt: Arena
 +    //if (tarteamplayers == 0)
@@ -6671,7 +6828,7 @@ index 9e190ef76..57c835e8a 100644
 @@ -1781,6 +1814,14 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
      uint32 needed_bots_count_a = (queued_players_a < tarteamplayers) ? (tarteamplayers - queued_players_a) : 0;
      uint32 needed_bots_count_h = (queued_players_h < tarteamplayers) ? (tarteamplayers - queued_players_h) : 0;
-
+ 
 +    // Ornfelt: Fix amount of bots in arena skirmish
 +    if (bgTypeId == 6)
 +    {
@@ -6682,11 +6839,11 @@ index 9e190ef76..57c835e8a 100644
 +
      ASSERT(needed_bots_count_a <= maxteamplayers);
      ASSERT(needed_bots_count_h <= maxteamplayers);
-
+ 
 @@ -1815,6 +1856,12 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
      NpcBotRegistry spawned_bots_a;
      NpcBotRegistry spawned_bots_h;
-
+ 
 +    // Ornfelt: bot balance
 +    //if (queued_players_a > 0)
 +    //	needed_bots_count_h -= 1;
@@ -6712,19 +6869,19 @@ index 9e190ef76..57c835e8a 100644
 +        // Ornfelt: spawn log
 +        //LOG_INFO("server.loading", "Spawned {} horde BG bots", std::to_string(needed_bots_count_h));
      }
-
+ 
 -    ASSERT(uint32(spawned_bots_a.size()) == needed_bots_count_a);
 -    ASSERT(uint32(spawned_bots_h.size()) == needed_bots_count_h);
 +    // Ornfelt: Remove assert
 +    //ASSERT(uint32(spawned_bots_a.size()) == needed_bots_count_a);
 +    //ASSERT(uint32(spawned_bots_h.size()) == needed_bots_count_h);
-
+ 
      botBGJoinEvents[groupLeader->GetGUID()].AddEventAtOffset([ammr = ammr, atype = atype, bgqTypeId = bgqTypeId, bgTypeId = bgTypeId, bracketId = bracketId]() {
          sBattlegroundMgr->ScheduleQueueUpdate(ammr, atype, bgqTypeId, bgTypeId, bracketId);
 @@ -1864,7 +1916,12 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
              queue->AddBotAsGroup(bot->GetGUID(), GetTeamIdForFaction(bot->GetFaction()),
                  bgTypeId, bracketEntry, atype, false, gqinfo->ArenaTeamRating, ammr);
-
+ 
 -            seconds_delay = std::min<uint32>(uint32(MINUTE * 2), seconds_delay + std::max<uint32>(1u, uint32((MINUTE / 2) / std::max<uint32>(needed_bots_count_a, needed_bots_count_h))));
 +            // seconds_delay = std::min<uint32>(uint32(MINUTE * 2), seconds_delay + std::max<uint32>(1u, uint32((MINUTE / 2) / std::max<uint32>(needed_bots_count_a, needed_bots_count_h))));
 +            // Ornfelt: Fix bots in arena queueing slowly...
@@ -6732,17 +6889,17 @@ index 9e190ef76..57c835e8a 100644
 +                seconds_delay += std::max<uint32>(1u, uint32((MINUTE / 4) / std::min<uint32>(needed_bots_count_a, needed_bots_count_h)));
 +            else
 +                seconds_delay = std::min<uint32>(uint32(MINUTE * 2), seconds_delay + std::max<uint32>(1u, uint32((MINUTE / 2) / std::max<uint32>(needed_bots_count_a, needed_bots_count_h))));
-
+ 
              BotBattlegroundEnterEvent* bbe = new BotBattlegroundEnterEvent(groupLeader->GetGUID(), bot->GetGUID(), bgqTypeId, bgTypeId,
                  botBGJoinEvents[groupLeader->GetGUID()].CalculateTime(Milliseconds(uint32(INVITE_ACCEPT_WAIT_TIME) + uint32(BG_START_DELAY_2M)).count()));
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
-index 38900a4ca..0fb3eabf7 100644
+index 4c2215400..e08447b9d 100644
 --- a/src/server/game/AI/NpcBots/botmgr.cpp
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -1653,7 +1653,9 @@ void BotMgr::_teleportBot(Creature* bot, Map* newMap, float x, float y, float z,
+@@ -1695,7 +1695,9 @@ void BotMgr::_teleportBot(Creature* bot, Map* newMap, float x, float y, float z,
              botai->SetIsDuringTeleport(false);
              botai->ResetContestedPvP();
-
+ 
 -            if (newMap->IsBattleground())
 +            // Ornfelt: Arena
 +            //if (newMap->IsBattleground())
@@ -6757,7 +6914,7 @@ index 6f9d01408..13a58cb7c 100644
 @@ -27,6 +27,12 @@
  #include "WorldSession.h"
  //#include "WorldStatePackets.h"
-
+ 
 +// Ornfelt: npcbot
 +#include "bot_ai.h"
 +#include "botdatamgr.h"
@@ -6769,7 +6926,7 @@ index 6f9d01408..13a58cb7c 100644
      data << PlayerGuid;
 @@ -138,22 +144,49 @@ void Arena::AddPlayer(Player* player)
  }
-
+ 
  //npcbot
 +//void Arena::AddBot(Creature* bot)
 +//{
@@ -6794,12 +6951,12 @@ index 6f9d01408..13a58cb7c 100644
 -    ASSERT(bot->IsNPCBot() && !bot->IsFreeBot());
 +    ObjectGuid guid = bot->GetGUID();
 +    TeamId teamId = BotDataMgr::GetTeamIdForFaction(bot->GetFaction());
-
+ 
 -    bool const isInBattleground = IsPlayerInBattleground(bot->GetGUID());
      Battleground::AddBot(bot);
 -    TeamId botteamid = bot->GetBotOwner()->GetBgTeamId();
 +    PlayerScores.emplace(bot->GetGUID().GetCounter(), new ArenaScore(bot->GetGUID(), teamId));
-
+ 
 -    if (!isInBattleground)
 -        BotScores[bot->GetEntry()] = new ArenaScore(bot->GetGUID(), botteamid);
 -
@@ -6818,31 +6975,31 @@ index 6f9d01408..13a58cb7c 100644
 +        else
 +            bot->CastSpell(bot, SPELL_ALLIANCE_GREEN_FLAG, true);
 +    }
-
+ 
      UpdateArenaWorldState();
  }
 -//end npcbot
-
+ 
  void Arena::RemovePlayer(Player* /*player*/)
  {
 diff --git a/src/server/game/Battlegrounds/Battleground.cpp b/src/server/game/Battlegrounds/Battleground.cpp
-index 8e33138b1..ab1b6b8b7 100644
+index 2b93a7545..78cf8c6d9 100644
 --- a/src/server/game/Battlegrounds/Battleground.cpp
 +++ b/src/server/game/Battlegrounds/Battleground.cpp
 @@ -1632,6 +1632,10 @@ bool Battleground::UpdatePlayerScore(Player* player, uint32 type, uint32 value,
      else
          itr->second->UpdateScore(type, value);
-
+ 
 +    // Ornfelt: player score:
 +    //if (type == SCORE_KILLING_BLOWS)
 +    //	LOG_INFO("server.loading", "NEW PLAYER KILL!");
 +
      return true;
  }
-
+ 
 @@ -1643,6 +1647,11 @@ bool Battleground::UpdateBotScore(Creature const* bot, uint32 type, uint32 value
          return false;
-
+ 
      itr->second->UpdateScore(type, value);
 +
 +    // Ornfelt: player score:
@@ -6857,7 +7014,7 @@ index cf3056a1e..60481203f 100644
 --- a/src/server/game/Battlegrounds/Battleground.h
 +++ b/src/server/game/Battlegrounds/Battleground.h
 @@ -176,7 +176,9 @@ enum BattlegroundTimeIntervals
-
+ 
  enum BattlegroundStartTimeIntervals
  {
 -    BG_START_DELAY_2M               = 120000,               // ms (2 minutes)
@@ -6874,7 +7031,7 @@ index 4874cf157..b9d7af2e2 100644
 @@ -366,6 +366,11 @@ Battleground* BattlegroundMgr::CreateNewBattleground(BattlegroundTypeId original
  {
      BattlegroundTypeId bgTypeId = GetRandomBG(originalBgTypeId, bracketEntry->minLevel);
-
+ 
 +    // Ornfelt: always nagrand skirm
 +    if (originalBgTypeId == 6)
 +        bgTypeId = BATTLEGROUND_NA;
@@ -6882,14 +7039,14 @@ index 4874cf157..b9d7af2e2 100644
 +
      if (originalBgTypeId == BATTLEGROUND_AA)
          originalBgTypeId = bgTypeId;
-
+ 
 diff --git a/src/server/game/Battlegrounds/BattlegroundQueue.cpp b/src/server/game/Battlegrounds/BattlegroundQueue.cpp
 index 76bd328b4..2593e861a 100644
 --- a/src/server/game/Battlegrounds/BattlegroundQueue.cpp
 +++ b/src/server/game/Battlegrounds/BattlegroundQueue.cpp
 @@ -224,6 +224,7 @@ GroupQueueInfo* BattlegroundQueue::AddGroup(Player* leader, Group* group, Battle
          SendMessageBGQueue(leader, bg, bracketEntry);
-
+ 
      //npcbot: try to queue wandering bots
 +    // if (!isRated && !arenaType && !arenaTeamId && !sBattlegroundMgr->isTesting() && !leader->GetGroup()) // Don't allow group queue
      if (!isRated && !isPremade && !arenaType && !arenaTeamId && !sBattlegroundMgr->isTesting())
@@ -6909,7 +7066,7 @@ index 76bd328b4..2593e861a 100644
 +        }
 +    }
      //end npcbot
-
+ 
      return ginfo;
 diff --git a/src/server/game/Battlegrounds/Zones/BattlegroundAB.cpp b/src/server/game/Battlegrounds/Zones/BattlegroundAB.cpp
 index f279b3e18..5a02a8c96 100644
@@ -6926,7 +7083,7 @@ index f279b3e18..5a02a8c96 100644
          m_TeamScores[teamId] = BG_AB_MAX_TEAM_SCORE;
 @@ -717,7 +719,7 @@ void BattlegroundAB::HandleBotKillPlayer(Creature* killer, Player* victim)
          return;
-
+ 
      Battleground::HandleBotKillPlayer(killer, victim);
 -    //RewardKillScore(GetPlayerTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
 +    //RewardKillScore(GetBotTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
@@ -6935,7 +7092,7 @@ index f279b3e18..5a02a8c96 100644
  {
 @@ -725,7 +727,7 @@ void BattlegroundAB::HandleBotKillBot(Creature* killer, Creature* victim)
          return;
-
+ 
      Battleground::HandleBotKillBot(killer, victim);
 -    //RewardKillScore(GetPlayerTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
 +    //RewardKillScore(GetBotTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
@@ -6944,15 +7101,15 @@ index f279b3e18..5a02a8c96 100644
  {
 @@ -733,7 +735,7 @@ void BattlegroundAB::HandlePlayerKillBot(Creature* victim, Player* killer)
          return;
-
+ 
      Battleground::HandlePlayerKillBot(victim, killer);
 -    //RewardKillScore(GetPlayerTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
 +    //RewardKillScore(killer->GetTeamId(), BG_AB_TickPoints[1]);
  }
  //end npcbot
-
+ 
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index ed237cf71..1f3ae0457 100644
+index bea652533..dcf64ad09 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -1081,6 +1081,11 @@ void Player::setDeathState(DeathState s, bool /*despawn = false*/)
@@ -6965,7 +7122,7 @@ index ed237cf71..1f3ae0457 100644
 +        if (Battleground* bg = GetBattleground())
 +            bg->CheckWinConditions();
  }
-
+ 
  void Player::SetRestState(uint32 triggerId)
 @@ -10794,14 +10799,29 @@ void Player::InitDisplayIds()
          case GENDER_FEMALE:
@@ -6996,15 +7153,15 @@ index ed237cf71..1f3ae0457 100644
 +            //SetNativeDisplayId(7550);
      }
  }
-
+ 
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 26a62cfa5..ef0674287 100644
+index 82a396560..358698cd3 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -1589,6 +1589,23 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
              break;
      }
-
+ 
 +    // Ornfelt: Buff spells
 +    // Buff lava burst
 +    if (spellInfo->Id == 60043)
@@ -7024,9 +7181,9 @@ index 26a62cfa5..ef0674287 100644
 +
      damageInfo->cleanDamage = std::max(0, cleanDamage);
      damageInfo->damage = std::max(0, damage);
-
+ 
 @@ -4664,7 +4681,12 @@ bool Unit::IsUnderWater() const
-
+ 
  void Unit::DeMorph()
  {
 +    // Ornfelt: demorph
@@ -7036,16 +7193,16 @@ index 26a62cfa5..ef0674287 100644
 +    //SetDisplayId(demorphId);
 +    //SetNativeDisplayId(demorphId);
  }
-
+ 
  Aura* Unit::_TryStackingOrRefreshingExistingAura(SpellInfo const* newAura, uint8 effMask, Unit* caster, int32* baseAmount /*= nullptr*/, Item* castItem /*= nullptr*/, ObjectGuid casterGUID /*= ObjectGuid::Empty*/, bool periodicReset /*= false*/)
 diff --git a/src/server/game/Entities/Unit/Unit.h b/src/server/game/Entities/Unit/Unit.h
-index d49a7177e..6e8c29db6 100644
+index 2d9375c4b..a1f7b1c9d 100644
 --- a/src/server/game/Entities/Unit/Unit.h
 +++ b/src/server/game/Entities/Unit/Unit.h
 @@ -819,6 +819,9 @@ public:
      void RestoreFaction();
      [[nodiscard]] uint32 GetOldFactionId() const { return _oldFactionId; }
-
+ 
 +    // Ornfelt: demorphid
 +    uint32 demorphId = 0;
 +
@@ -7053,13 +7210,13 @@ index d49a7177e..6e8c29db6 100644
      /***            METHODS RELATED TO COMBATS             ***/
      /*********************************************************/
 diff --git a/src/server/game/Spells/Auras/SpellAuraEffects.cpp b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
-index df2dce009..ad9921d39 100644
+index ea25f9a85..e6572d805 100644
 --- a/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 +++ b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
-@@ -1963,6 +1963,24 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
-
+@@ -1968,6 +1968,24 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
+ 
      modelid = target->GetModelForForm(form, GetId());
-
+ 
 +    // Ornfelt: debug info...
 +    //if (target->GetTypeId() == TYPEID_PLAYER);
 +    //{
@@ -7082,29 +7239,29 @@ index df2dce009..ad9921d39 100644
      {
          // remove polymorph before changing display id to keep new display id
 diff --git a/src/server/game/Spells/Spell.cpp b/src/server/game/Spells/Spell.cpp
-index d28739ac5..7f6c82536 100644
+index 6655ff81f..2f216c067 100644
 --- a/src/server/game/Spells/Spell.cpp
 +++ b/src/server/game/Spells/Spell.cpp
-@@ -3654,6 +3654,9 @@ SpellCastResult Spell::prepare(SpellCastTargets const* targets, AuraEffect const
+@@ -3658,6 +3658,9 @@ SpellCastResult Spell::prepare(SpellCastTargets const* targets, AuraEffect const
      if (m_caster->IsPlayer())
          if (m_caster->ToPlayer()->GetCommandStatus(CHEAT_CASTTIME))
              m_casttime = 0;
 +        // Ornfelt: remove cast time for ghost wolf
 +        else if (m_spellInfo->Id == 2645)
 +            m_casttime = 0;
-
+ 
      // don't allow channeled spells / spells with cast time to be casted while moving
      // (even if they are interrupted on moving, spells with almost immediate effect get to have their effect processed before movement interrupter kicks in)
-@@ -6871,7 +6874,9 @@ SpellCastResult Spell::CheckCast(bool strict)
+@@ -6875,7 +6878,9 @@ SpellCastResult Spell::CheckCast(bool strict)
                      if (m_caster->IsPlayer() && !allowMount && !m_spellInfo->AreaGroupId)
                          return SPELL_FAILED_NO_MOUNTS_ALLOWED;
-
+ 
 -                    if (m_caster->IsInDisallowedMountForm())
 +                    // Ornfelt: this hinders mounting when morphed
 +                    //if (m_caster->IsInDisallowedMountForm())
 +                    if (m_caster->IsInDisallowedMountForm() && m_caster->GetDisplayId() != 7550)
                          return SPELL_FAILED_NOT_SHAPESHIFT;
-
+ 
                      // xinef: dont allow to cast mounts in specific transforms
 diff --git a/src/server/scripts/Commands/cs_modify.cpp b/src/server/scripts/Commands/cs_modify.cpp
 index df975ac6e..d7a82de94 100644
@@ -7112,10 +7269,10 @@ index df975ac6e..d7a82de94 100644
 +++ b/src/server/scripts/Commands/cs_modify.cpp
 @@ -849,6 +849,8 @@ public:
          }
-
+ 
          target->SetDisplayId(displayID);
 +        // Ornfelt: morph
 +        //target->SetNativeDisplayId(displayID);
          return true;
      }
-
+ 
