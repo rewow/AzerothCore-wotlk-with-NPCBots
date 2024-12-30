@@ -6293,7 +6293,7 @@ index 725842fa3..6b3d10793 100644
 +UPDATE `creature_template_npcbot_wander_nodes` SET `links`='3358:0 3359:0 2506:0 2508:0 ' WHERE (`id`='2507');
 +UPDATE `creature_template_npcbot_wander_nodes` SET `links`='2507:0 3360:0 3361:0 ' WHERE (`id`='2508');
 diff --git a/src/server/database/Database/DatabaseWorkerPool.cpp b/src/server/database/Database/DatabaseWorkerPool.cpp
-index 0fd20d4b4..b79b55b85 100644
+index 968e4e428..fd672340d 100644
 --- a/src/server/database/Database/DatabaseWorkerPool.cpp
 +++ b/src/server/database/Database/DatabaseWorkerPool.cpp
 @@ -59,11 +59,15 @@ DatabaseWorkerPool<T>::DatabaseWorkerPool() :
@@ -6314,7 +6314,7 @@ index 0fd20d4b4..b79b55b85 100644
      WPFatal(isSameClientDB, "Used MySQL library version ({} id {}) does not match the version id used to compile AzerothCore (id {}).\nSearch the wiki for ACE00046 in Common Errors (https://www.azerothcore.org/wiki/common-errors#ace00046).",
          mysql_get_client_info(), mysql_get_client_version(), MYSQL_VERSION_ID);
  }
-@@ -373,6 +377,8 @@ void DatabaseWorkerPool<T>::KeepAlive()
+@@ -377,6 +381,8 @@ void DatabaseWorkerPool<T>::KeepAlive()
  *
  * DatabaseIncompatibleVersion("8.0.35") => false
  * DatabaseIncompatibleVersion("5.6.6") => true
@@ -6323,7 +6323,7 @@ index 0fd20d4b4..b79b55b85 100644
  *
  * Adapted from stackoverflow response
  * https://stackoverflow.com/a/2941508
-@@ -403,6 +409,17 @@ bool DatabaseIncompatibleVersion(std::string const mysqlVersion)
+@@ -407,6 +413,17 @@ bool DatabaseIncompatibleVersion(std::string const mysqlVersion)
      uint8 offset = 0;
      std::string minVersion = MIN_MYSQL_SERVER_VERSION;
  
@@ -6341,7 +6341,7 @@ index 0fd20d4b4..b79b55b85 100644
      auto parsedMySQLVersion = parse(mysqlVersion.substr(offset));
      auto parsedMinVersion = parse(minVersion);
  
-@@ -437,7 +454,7 @@ uint32 DatabaseWorkerPool<T>::OpenConnections(InternalIndex type, uint8 numConne
+@@ -442,7 +459,7 @@ uint32 DatabaseWorkerPool<T>::OpenConnections(InternalIndex type, uint8 numConne
          }
          else if (DatabaseIncompatibleVersion(connection->GetServerInfo()))
          {
@@ -6463,10 +6463,10 @@ index 3cc11a67e..1b268b60d 100644
      // Execute sql file
      args.emplace_back("-e");
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
-index 73c0c0654..bc173c9d5 100644
+index fa5e3c32e..07a720140 100644
 --- a/src/server/game/AI/NpcBots/bot_ai.cpp
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -591,6 +591,9 @@ void bot_ai::ResetBotAI(uint8 resetType)
+@@ -592,6 +592,9 @@ void bot_ai::ResetBotAI(uint8 resetType)
      _botCommandState = 0;
      _botAwaitState = BOT_AWAIT_NONE;
      _reviveTimer = 0;
@@ -6476,7 +6476,7 @@ index 73c0c0654..bc173c9d5 100644
  
      if (resetType & BOTAI_RESET_MASK_RESET_MASTER)
          master = reinterpret_cast<Player*>(me);
-@@ -2339,7 +2342,8 @@ void bot_ai::SetStats(bool force)
+@@ -2340,7 +2343,8 @@ void bot_ai::SetStats(bool force)
              if (me->GetMap()->IsBattlegroundOrArena())
                  BOT_LOG_DEBUG("npcbots", "BG bot {} id {} selected level {}...", me->GetName().c_str(), me->GetEntry(), uint32(_baseLevel));
              else
@@ -6486,7 +6486,7 @@ index 73c0c0654..bc173c9d5 100644
          }
          else if (me->GetMap()->GetEntry()->IsContinent())
          {
-@@ -2347,6 +2351,10 @@ void bot_ai::SetStats(bool force)
+@@ -2348,6 +2352,10 @@ void bot_ai::SetStats(bool force)
              mapmaxlevel += BotDataMgr::GetLevelBonusForBotRank(me->GetCreatureTemplate()->rank);
              //TODO: experience system for levelups
              mylevel = std::max<uint8>(mylevel, std::min<uint8>(_baseLevel + uint8(uint32(float(_killsCount) * BotMgr::GetBotWandererXPGainMod()) / (mylevel * 20)), mapmaxlevel));
@@ -6497,7 +6497,7 @@ index 73c0c0654..bc173c9d5 100644
          }
      }
      else
-@@ -2365,6 +2373,26 @@ void bot_ai::SetStats(bool force)
+@@ -2366,6 +2374,26 @@ void bot_ai::SetStats(bool force)
  
          me->SetLevel(mylevel);
          force = true; //reinit spells/passives/other
@@ -6524,7 +6524,7 @@ index 73c0c0654..bc173c9d5 100644
      }
      if (force)
      {
-@@ -3833,6 +3861,10 @@ bool bot_ai::CanBotAttack(Unit const* target, int8 byspell, bool secondary) cons
+@@ -3834,6 +3862,10 @@ bool bot_ai::CanBotAttack(Unit const* target, int8 byspell, bool secondary) cons
              case 4952: case 17578: case 24792: case 30527: case 31143: case 31144: case 31146: // training dummy
              case 32541: case 32542: case 32543: case 32545: case 32546: case 32547: case 32666: case 32667: // training dummy
              case 7668: case 7669: case 7670: case 7671: // Blasted Lands servants
@@ -6535,7 +6535,7 @@ index 73c0c0654..bc173c9d5 100644
                  return false;
              case 21416: case 21709: case 21710: case 21711: // Shadowmoon Valley Broken element corruptors
                  if (target->HasAuraTypeWithMiscvalue(SPELL_AURA_SCHOOL_IMMUNITY, 127))
-@@ -5962,6 +5994,7 @@ uint32 bot_ai::_selectMountSpell() const
+@@ -5963,6 +5995,7 @@ uint32 bot_ai::_selectMountSpell() const
      {
          using MountArray = std::array<uint32, NUM_MOUNTS_PER_SPEED>;
  
@@ -6543,7 +6543,7 @@ index 73c0c0654..bc173c9d5 100644
          bool can_fly = !IAmFree() ? master->CanFly() : false; //(!instt && me->GetMap()->GetEntry()->addon > 0);
          bool useSlowMount = can_fly ? (me->GetLevel() < 70 || maxMountSpeed < 220) : (me->GetLevel() < minLevel100 || maxMountSpeed < 80);
  
-@@ -16347,20 +16380,28 @@ void bot_ai::JustDied(Unit* u)
+@@ -16348,20 +16381,28 @@ void bot_ai::JustDied(Unit* u)
                  gr->SendUpdate();
      }
  
@@ -6574,7 +6574,7 @@ index 73c0c0654..bc173c9d5 100644
              IsWanderer() ? "Wandering bot" : "Bot", me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
              (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
              u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-@@ -16413,7 +16454,8 @@ void bot_ai::KilledUnit(Unit* u)
+@@ -16414,7 +16455,8 @@ void bot_ai::KilledUnit(Unit* u)
          {
              if (IsWanderer())
              {
@@ -6584,7 +6584,7 @@ index 73c0c0654..bc173c9d5 100644
                      me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
                      (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
                      u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-@@ -16421,7 +16463,8 @@ void bot_ai::KilledUnit(Unit* u)
+@@ -16422,7 +16464,8 @@ void bot_ai::KilledUnit(Unit* u)
              }
              else if (u->IsNPCBot() && u->ToCreature()->GetBotAI()->IsWanderer())
              {
@@ -6594,7 +6594,7 @@ index 73c0c0654..bc173c9d5 100644
                      me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
                      u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
                      IsWanderer() ? _travel_node_cur->GetName().c_str() : "''");
-@@ -16430,7 +16473,9 @@ void bot_ai::KilledUnit(Unit* u)
+@@ -16431,7 +16474,9 @@ void bot_ai::KilledUnit(Unit* u)
      }
  
      //handle BG kill BvP, BvB, BvC
@@ -6605,7 +6605,7 @@ index 73c0c0654..bc173c9d5 100644
      {
          Battleground* bg = GetBG();
          //could be removed from BG
-@@ -18761,6 +18806,26 @@ void bot_ai::CommonTimers(uint32 diff)
+@@ -18772,6 +18817,26 @@ void bot_ai::CommonTimers(uint32 diff)
              _rentTimer += diff;
      }
  
@@ -6632,7 +6632,7 @@ index 73c0c0654..bc173c9d5 100644
      if (me->IsInWorld())
      {
          if (_wmoAreaUpdateTimer > diff) _wmoAreaUpdateTimer -= diff;
-@@ -18794,7 +18859,9 @@ void bot_ai::CommonTimers(uint32 diff)
+@@ -18806,7 +18871,9 @@ void bot_ai::CommonTimers(uint32 diff)
  
  void bot_ai::UpdateReviveTimer(uint32 diff)
  {
@@ -6643,7 +6643,7 @@ index 73c0c0654..bc173c9d5 100644
          return;
  
      if (_reviveTimer > diff)        _reviveTimer -= diff;
-@@ -18882,12 +18949,34 @@ void bot_ai::Evade()
+@@ -18894,12 +18961,34 @@ void bot_ai::Evade()
  
      if (IsWanderer())
      {
@@ -6682,7 +6682,7 @@ index 73c0c0654..bc173c9d5 100644
  
              evadeDelayTimer = 12000;
              me->CastSpell(me, WANDERER_HEARTHSTONE);
-@@ -18967,6 +19056,22 @@ void bot_ai::Evade()
+@@ -18979,6 +19068,22 @@ void bot_ai::Evade()
                  OnWanderNodeReached();
  
                  WanderNode const* nextNode = GetNextTravelNode(&pos, false);
@@ -6705,7 +6705,7 @@ index 73c0c0654..bc173c9d5 100644
                  if (!nextNode)
                  {
                      BOT_LOG_FATAL("npcbots", "Bot {} ({}) is unable to get next travel node! cur {}, last {}, position: {}. BOT WAS DISABLED",
-@@ -20617,6 +20722,16 @@ void bot_ai::OnBotEnterBattleground()
+@@ -20629,6 +20734,16 @@ void bot_ai::OnBotEnterBattleground()
              }
          });
  
@@ -6723,7 +6723,7 @@ index 73c0c0654..bc173c9d5 100644
          if (startNode)
          {
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
-index eaed68230..e99fb69c2 100644
+index cae5ed84a..0ba449842 100644
 --- a/src/server/game/AI/NpcBots/bot_ai.h
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -727,6 +727,10 @@ class bot_ai : public CreatureAI
@@ -6738,7 +6738,7 @@ index eaed68230..e99fb69c2 100644
          uint32 _selfrez_spell_id;
  
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-index cfe001537..f3a1e9941 100644
+index 169a2dd06..0b3bcc439 100644
 --- a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -873,7 +873,9 @@ public:
@@ -6753,7 +6753,7 @@ index cfe001537..f3a1e9941 100644
              else if (HasRole(BOT_ROLE_HEAL))
                  SEAL = WISDOM ? WISDOM : LIGHT ? LIGHT : RIGHT;
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
-index cb22ff3b7..986538c37 100644
+index b41081973..d13cccefd 100644
 --- a/src/server/game/AI/NpcBots/botdatamgr.cpp
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
 @@ -148,6 +148,18 @@ public:
@@ -7041,7 +7041,7 @@ index 4874cf157..b9d7af2e2 100644
          originalBgTypeId = bgTypeId;
  
 diff --git a/src/server/game/Battlegrounds/BattlegroundQueue.cpp b/src/server/game/Battlegrounds/BattlegroundQueue.cpp
-index 76bd328b4..2593e861a 100644
+index fe3ac32e7..26f14cd96 100644
 --- a/src/server/game/Battlegrounds/BattlegroundQueue.cpp
 +++ b/src/server/game/Battlegrounds/BattlegroundQueue.cpp
 @@ -224,6 +224,7 @@ GroupQueueInfo* BattlegroundQueue::AddGroup(Player* leader, Group* group, Battle
@@ -7109,10 +7109,10 @@ index f279b3e18..5a02a8c96 100644
  //end npcbot
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index bea652533..dcf64ad09 100644
+index 5c2f2ab40..50cc848e2 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
-@@ -1081,6 +1081,11 @@ void Player::setDeathState(DeathState s, bool /*despawn = false*/)
+@@ -1084,6 +1084,11 @@ void Player::setDeathState(DeathState s, bool /*despawn = false*/)
      if (IsAlive() && !cur)
          //clear aura case after resurrection by another way (spells will be applied before next death)
          SetUInt32Value(PLAYER_SELF_RES_SPELL, 0);
@@ -7124,7 +7124,7 @@ index bea652533..dcf64ad09 100644
  }
  
  void Player::SetRestState(uint32 triggerId)
-@@ -10794,14 +10799,29 @@ void Player::InitDisplayIds()
+@@ -10819,14 +10824,29 @@ void Player::InitDisplayIds()
          case GENDER_FEMALE:
              SetDisplayId(info->displayId_f);
              SetNativeDisplayId(info->displayId_f);
@@ -7155,7 +7155,7 @@ index bea652533..dcf64ad09 100644
  }
  
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 82a396560..358698cd3 100644
+index 7cd36c994..4ecea6b66 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -1589,6 +1589,23 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
@@ -7196,10 +7196,10 @@ index 82a396560..358698cd3 100644
  
  Aura* Unit::_TryStackingOrRefreshingExistingAura(SpellInfo const* newAura, uint8 effMask, Unit* caster, int32* baseAmount /*= nullptr*/, Item* castItem /*= nullptr*/, ObjectGuid casterGUID /*= ObjectGuid::Empty*/, bool periodicReset /*= false*/)
 diff --git a/src/server/game/Entities/Unit/Unit.h b/src/server/game/Entities/Unit/Unit.h
-index 2d9375c4b..a1f7b1c9d 100644
+index 60843c54c..294d650c4 100644
 --- a/src/server/game/Entities/Unit/Unit.h
 +++ b/src/server/game/Entities/Unit/Unit.h
-@@ -819,6 +819,9 @@ public:
+@@ -825,6 +825,9 @@ public:
      void RestoreFaction();
      [[nodiscard]] uint32 GetOldFactionId() const { return _oldFactionId; }
  
@@ -7239,7 +7239,7 @@ index ea25f9a85..e6572d805 100644
      {
          // remove polymorph before changing display id to keep new display id
 diff --git a/src/server/game/Spells/Spell.cpp b/src/server/game/Spells/Spell.cpp
-index 6655ff81f..2f216c067 100644
+index f0d4b1eee..455f3ff96 100644
 --- a/src/server/game/Spells/Spell.cpp
 +++ b/src/server/game/Spells/Spell.cpp
 @@ -3658,6 +3658,9 @@ SpellCastResult Spell::prepare(SpellCastTargets const* targets, AuraEffect const
