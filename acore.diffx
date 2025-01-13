@@ -7155,7 +7155,7 @@ index 5c2f2ab40..50cc848e2 100644
  }
  
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 7cd36c994..4ecea6b66 100644
+index 0c1e6dfa4..78895a1a2 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -1589,6 +1589,23 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
