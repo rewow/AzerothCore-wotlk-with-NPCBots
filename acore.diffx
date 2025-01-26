@@ -7109,7 +7109,7 @@ index f279b3e18..5a02a8c96 100644
  //end npcbot
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 5c2f2ab40..50cc848e2 100644
+index b01700ee3..2c6a1486e 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -1084,6 +1084,11 @@ void Player::setDeathState(DeathState s, bool /*despawn = false*/)
@@ -7155,7 +7155,7 @@ index 5c2f2ab40..50cc848e2 100644
  }
  
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 0c1e6dfa4..78895a1a2 100644
+index e8e07c367..0a206aaae 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -1589,6 +1589,23 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
@@ -7239,7 +7239,7 @@ index ea25f9a85..e6572d805 100644
      {
          // remove polymorph before changing display id to keep new display id
 diff --git a/src/server/game/Spells/Spell.cpp b/src/server/game/Spells/Spell.cpp
-index f0d4b1eee..455f3ff96 100644
+index 41de7c235..831f9a56a 100644
 --- a/src/server/game/Spells/Spell.cpp
 +++ b/src/server/game/Spells/Spell.cpp
 @@ -3658,6 +3658,9 @@ SpellCastResult Spell::prepare(SpellCastTargets const* targets, AuraEffect const
@@ -7252,7 +7252,7 @@ index f0d4b1eee..455f3ff96 100644
  
      // don't allow channeled spells / spells with cast time to be casted while moving
      // (even if they are interrupted on moving, spells with almost immediate effect get to have their effect processed before movement interrupter kicks in)
-@@ -6875,7 +6878,9 @@ SpellCastResult Spell::CheckCast(bool strict)
+@@ -6881,7 +6884,9 @@ SpellCastResult Spell::CheckCast(bool strict)
                      if (m_caster->IsPlayer() && !allowMount && !m_spellInfo->AreaGroupId)
                          return SPELL_FAILED_NO_MOUNTS_ALLOWED;
  
