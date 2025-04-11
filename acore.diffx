@@ -6463,7 +6463,7 @@ index 3cc11a67e..1b268b60d 100644
      // Execute sql file
      args.emplace_back("-e");
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
-index fa5e3c32e..07a720140 100644
+index 3a562cfec..822337fa2 100644
 --- a/src/server/game/AI/NpcBots/bot_ai.cpp
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
 @@ -592,6 +592,9 @@ void bot_ai::ResetBotAI(uint8 resetType)
@@ -6723,7 +6723,7 @@ index fa5e3c32e..07a720140 100644
          if (startNode)
          {
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
-index cae5ed84a..0ba449842 100644
+index 9bb1b62c8..5a28d02ba 100644
 --- a/src/server/game/AI/NpcBots/bot_ai.h
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
 @@ -727,6 +727,10 @@ class bot_ai : public CreatureAI
@@ -6738,7 +6738,7 @@ index cae5ed84a..0ba449842 100644
          uint32 _selfrez_spell_id;
  
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-index 169a2dd06..0b3bcc439 100644
+index aad32d69f..80d27425d 100644
 --- a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 @@ -873,7 +873,9 @@ public:
@@ -6908,12 +6908,12 @@ index 4c2215400..e08447b9d 100644
                  Battleground* bg = botai->GetBG();
                  if (!bg)
 diff --git a/src/server/game/Battlegrounds/Arena.cpp b/src/server/game/Battlegrounds/Arena.cpp
-index 6f9d01408..13a58cb7c 100644
+index bdfbe8f97..134acb0f8 100644
 --- a/src/server/game/Battlegrounds/Arena.cpp
 +++ b/src/server/game/Battlegrounds/Arena.cpp
-@@ -27,6 +27,12 @@
- #include "WorldSession.h"
- //#include "WorldStatePackets.h"
+@@ -28,6 +28,12 @@
+ #include "WorldSessionMgr.h"
+ #include "WorldStatePackets.h"
  
 +// Ornfelt: npcbot
 +#include "bot_ai.h"
@@ -6924,7 +6924,7 @@ index 6f9d01408..13a58cb7c 100644
  void ArenaScore::AppendToPacket(WorldPacket& data)
  {
      data << PlayerGuid;
-@@ -138,22 +144,49 @@ void Arena::AddPlayer(Player* player)
+@@ -139,22 +145,49 @@ void Arena::AddPlayer(Player* player)
  }
  
  //npcbot
@@ -6983,10 +6983,10 @@ index 6f9d01408..13a58cb7c 100644
  void Arena::RemovePlayer(Player* /*player*/)
  {
 diff --git a/src/server/game/Battlegrounds/Battleground.cpp b/src/server/game/Battlegrounds/Battleground.cpp
-index 2b93a7545..78cf8c6d9 100644
+index 2ced16467..8d56595b1 100644
 --- a/src/server/game/Battlegrounds/Battleground.cpp
 +++ b/src/server/game/Battlegrounds/Battleground.cpp
-@@ -1632,6 +1632,10 @@ bool Battleground::UpdatePlayerScore(Player* player, uint32 type, uint32 value,
+@@ -1636,6 +1636,10 @@ bool Battleground::UpdatePlayerScore(Player* player, uint32 type, uint32 value,
      else
          itr->second->UpdateScore(type, value);
  
@@ -6997,7 +6997,7 @@ index 2b93a7545..78cf8c6d9 100644
      return true;
  }
  
-@@ -1643,6 +1647,11 @@ bool Battleground::UpdateBotScore(Creature const* bot, uint32 type, uint32 value
+@@ -1647,6 +1651,11 @@ bool Battleground::UpdateBotScore(Creature const* bot, uint32 type, uint32 value
          return false;
  
      itr->second->UpdateScore(type, value);
@@ -7010,10 +7010,10 @@ index 2b93a7545..78cf8c6d9 100644
  }
  //end npcbot
 diff --git a/src/server/game/Battlegrounds/Battleground.h b/src/server/game/Battlegrounds/Battleground.h
-index cf3056a1e..60481203f 100644
+index 2c116d7ba..67142d46c 100644
 --- a/src/server/game/Battlegrounds/Battleground.h
 +++ b/src/server/game/Battlegrounds/Battleground.h
-@@ -176,7 +176,9 @@ enum BattlegroundTimeIntervals
+@@ -177,7 +177,9 @@ enum BattlegroundTimeIntervals
  
  enum BattlegroundStartTimeIntervals
  {
@@ -7025,10 +7025,10 @@ index cf3056a1e..60481203f 100644
      BG_START_DELAY_30S              = 30000,                // ms (30 seconds)
      BG_START_DELAY_15S              = 15000,                // ms (15 seconds) Used only in arena
 diff --git a/src/server/game/Battlegrounds/BattlegroundMgr.cpp b/src/server/game/Battlegrounds/BattlegroundMgr.cpp
-index 4874cf157..b9d7af2e2 100644
+index 46bac265d..3d9f69e88 100644
 --- a/src/server/game/Battlegrounds/BattlegroundMgr.cpp
 +++ b/src/server/game/Battlegrounds/BattlegroundMgr.cpp
-@@ -366,6 +366,11 @@ Battleground* BattlegroundMgr::CreateNewBattleground(BattlegroundTypeId original
+@@ -378,6 +378,11 @@ Battleground* BattlegroundMgr::CreateNewBattleground(BattlegroundTypeId original
  {
      BattlegroundTypeId bgTypeId = GetRandomBG(originalBgTypeId, bracketEntry->minLevel);
  
@@ -7041,7 +7041,7 @@ index 4874cf157..b9d7af2e2 100644
          originalBgTypeId = bgTypeId;
  
 diff --git a/src/server/game/Battlegrounds/BattlegroundQueue.cpp b/src/server/game/Battlegrounds/BattlegroundQueue.cpp
-index fe3ac32e7..26f14cd96 100644
+index 9a7a9e54a..19e53b0b2 100644
 --- a/src/server/game/Battlegrounds/BattlegroundQueue.cpp
 +++ b/src/server/game/Battlegrounds/BattlegroundQueue.cpp
 @@ -224,6 +224,7 @@ GroupQueueInfo* BattlegroundQueue::AddGroup(Player* leader, Group* group, Battle
@@ -7069,10 +7069,10 @@ index fe3ac32e7..26f14cd96 100644
  
      return ginfo;
 diff --git a/src/server/game/Battlegrounds/Zones/BattlegroundAB.cpp b/src/server/game/Battlegrounds/Zones/BattlegroundAB.cpp
-index f279b3e18..5a02a8c96 100644
+index b73cd98b8..eb55fee6c 100644
 --- a/src/server/game/Battlegrounds/Zones/BattlegroundAB.cpp
 +++ b/src/server/game/Battlegrounds/Zones/BattlegroundAB.cpp
-@@ -703,6 +703,8 @@ GraveyardStruct const* BattlegroundAB::GetClosestGraveyardForBot(Creature* bot)
+@@ -710,6 +710,8 @@ GraveyardStruct const* BattlegroundAB::GetClosestGraveyardForBot(Creature* bot)
  void BattlegroundAB::RewardKillScore(TeamId teamId, uint32 amount)
  {
      // Score feature
@@ -7081,7 +7081,7 @@ index f279b3e18..5a02a8c96 100644
      m_TeamScores[teamId] += amount;
      if (m_TeamScores[teamId] > BG_AB_MAX_TEAM_SCORE)
          m_TeamScores[teamId] = BG_AB_MAX_TEAM_SCORE;
-@@ -717,7 +719,7 @@ void BattlegroundAB::HandleBotKillPlayer(Creature* killer, Player* victim)
+@@ -724,7 +726,7 @@ void BattlegroundAB::HandleBotKillPlayer(Creature* killer, Player* victim)
          return;
  
      Battleground::HandleBotKillPlayer(killer, victim);
@@ -7090,7 +7090,7 @@ index f279b3e18..5a02a8c96 100644
  }
  void BattlegroundAB::HandleBotKillBot(Creature* killer, Creature* victim)
  {
-@@ -725,7 +727,7 @@ void BattlegroundAB::HandleBotKillBot(Creature* killer, Creature* victim)
+@@ -732,7 +734,7 @@ void BattlegroundAB::HandleBotKillBot(Creature* killer, Creature* victim)
          return;
  
      Battleground::HandleBotKillBot(killer, victim);
@@ -7099,7 +7099,7 @@ index f279b3e18..5a02a8c96 100644
  }
  void BattlegroundAB::HandlePlayerKillBot(Creature* victim, Player* killer)
  {
-@@ -733,7 +735,7 @@ void BattlegroundAB::HandlePlayerKillBot(Creature* victim, Player* killer)
+@@ -740,7 +742,7 @@ void BattlegroundAB::HandlePlayerKillBot(Creature* victim, Player* killer)
          return;
  
      Battleground::HandlePlayerKillBot(victim, killer);
@@ -7109,10 +7109,10 @@ index f279b3e18..5a02a8c96 100644
  //end npcbot
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index b01700ee3..2c6a1486e 100644
+index e33cbc209..2003c1589 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
-@@ -1084,6 +1084,11 @@ void Player::setDeathState(DeathState s, bool /*despawn = false*/)
+@@ -1087,6 +1087,11 @@ void Player::setDeathState(DeathState s, bool /*despawn = false*/)
      if (IsAlive() && !cur)
          //clear aura case after resurrection by another way (spells will be applied before next death)
          SetUInt32Value(PLAYER_SELF_RES_SPELL, 0);
@@ -7124,7 +7124,7 @@ index b01700ee3..2c6a1486e 100644
  }
  
  void Player::SetRestState(uint32 triggerId)
-@@ -10819,14 +10824,29 @@ void Player::InitDisplayIds()
+@@ -10848,14 +10853,29 @@ void Player::InitDisplayIds()
          case GENDER_FEMALE:
              SetDisplayId(info->displayId_f);
              SetNativeDisplayId(info->displayId_f);
@@ -7155,10 +7155,10 @@ index b01700ee3..2c6a1486e 100644
  }
  
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index e8e07c367..0a206aaae 100644
+index c36d62912..ac5f1f2a5 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
-@@ -1589,6 +1589,23 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
+@@ -1600,6 +1600,23 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
              break;
      }
  
@@ -7182,7 +7182,7 @@ index e8e07c367..0a206aaae 100644
      damageInfo->cleanDamage = std::max(0, cleanDamage);
      damageInfo->damage = std::max(0, damage);
  
-@@ -4664,7 +4681,12 @@ bool Unit::IsUnderWater() const
+@@ -4696,7 +4713,12 @@ bool Unit::IsUnderWater() const
  
  void Unit::DeMorph()
  {
@@ -7196,10 +7196,10 @@ index e8e07c367..0a206aaae 100644
  
  Aura* Unit::_TryStackingOrRefreshingExistingAura(SpellInfo const* newAura, uint8 effMask, Unit* caster, int32* baseAmount /*= nullptr*/, Item* castItem /*= nullptr*/, ObjectGuid casterGUID /*= ObjectGuid::Empty*/, bool periodicReset /*= false*/)
 diff --git a/src/server/game/Entities/Unit/Unit.h b/src/server/game/Entities/Unit/Unit.h
-index 60843c54c..294d650c4 100644
+index b90d261bf..1ebc93441 100644
 --- a/src/server/game/Entities/Unit/Unit.h
 +++ b/src/server/game/Entities/Unit/Unit.h
-@@ -825,6 +825,9 @@ public:
+@@ -828,6 +828,9 @@ public:
      void RestoreFaction();
      [[nodiscard]] uint32 GetOldFactionId() const { return _oldFactionId; }
  
@@ -7210,7 +7210,7 @@ index 60843c54c..294d650c4 100644
      /***            METHODS RELATED TO COMBATS             ***/
      /*********************************************************/
 diff --git a/src/server/game/Spells/Auras/SpellAuraEffects.cpp b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
-index ea25f9a85..e6572d805 100644
+index 780c1eb7a..938f5d474 100644
 --- a/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 +++ b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 @@ -1968,6 +1968,24 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
@@ -7239,10 +7239,10 @@ index ea25f9a85..e6572d805 100644
      {
          // remove polymorph before changing display id to keep new display id
 diff --git a/src/server/game/Spells/Spell.cpp b/src/server/game/Spells/Spell.cpp
-index 41de7c235..831f9a56a 100644
+index 75b18bbb7..8854316ad 100644
 --- a/src/server/game/Spells/Spell.cpp
 +++ b/src/server/game/Spells/Spell.cpp
-@@ -3658,6 +3658,9 @@ SpellCastResult Spell::prepare(SpellCastTargets const* targets, AuraEffect const
+@@ -3663,6 +3663,9 @@ SpellCastResult Spell::prepare(SpellCastTargets const* targets, AuraEffect const
      if (m_caster->IsPlayer())
          if (m_caster->ToPlayer()->GetCommandStatus(CHEAT_CASTTIME))
              m_casttime = 0;
@@ -7252,7 +7252,7 @@ index 41de7c235..831f9a56a 100644
  
      // don't allow channeled spells / spells with cast time to be casted while moving
      // (even if they are interrupted on moving, spells with almost immediate effect get to have their effect processed before movement interrupter kicks in)
-@@ -6881,7 +6884,9 @@ SpellCastResult Spell::CheckCast(bool strict)
+@@ -6886,7 +6889,9 @@ SpellCastResult Spell::CheckCast(bool strict)
                      if (m_caster->IsPlayer() && !allowMount && !m_spellInfo->AreaGroupId)
                          return SPELL_FAILED_NO_MOUNTS_ALLOWED;
  
