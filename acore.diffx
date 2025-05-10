@@ -6853,10 +6853,10 @@ index 2ced16467..8d56595b1 100644
  }
  //end npcbot
 diff --git a/src/server/game/Battlegrounds/Battleground.h b/src/server/game/Battlegrounds/Battleground.h
-index 2c116d7ba..67142d46c 100644
+index a7c0dcd24..539d44d67 100644
 --- a/src/server/game/Battlegrounds/Battleground.h
 +++ b/src/server/game/Battlegrounds/Battleground.h
-@@ -177,7 +177,9 @@ enum BattlegroundTimeIntervals
+@@ -167,7 +167,9 @@ enum BattlegroundTimeIntervals
  
  enum BattlegroundStartTimeIntervals
  {
@@ -6868,10 +6868,10 @@ index 2c116d7ba..67142d46c 100644
      BG_START_DELAY_30S              = 30000,                // ms (30 seconds)
      BG_START_DELAY_15S              = 15000,                // ms (15 seconds) Used only in arena
 diff --git a/src/server/game/Battlegrounds/BattlegroundMgr.cpp b/src/server/game/Battlegrounds/BattlegroundMgr.cpp
-index e8bc14d99..d7ee7bc87 100644
+index f447a47d4..7ddef859c 100644
 --- a/src/server/game/Battlegrounds/BattlegroundMgr.cpp
 +++ b/src/server/game/Battlegrounds/BattlegroundMgr.cpp
-@@ -379,6 +379,11 @@ Battleground* BattlegroundMgr::CreateNewBattleground(BattlegroundTypeId original
+@@ -380,6 +380,11 @@ Battleground* BattlegroundMgr::CreateNewBattleground(BattlegroundTypeId original
  {
      BattlegroundTypeId bgTypeId = GetRandomBG(originalBgTypeId, bracketEntry->minLevel);
  
@@ -6952,10 +6952,10 @@ index 760cec604..bed37378d 100644
  //end npcbot
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index ed17d0d68..7a17892a3 100644
+index 676f43389..c7a2b89e8 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
-@@ -1088,6 +1088,11 @@ void Player::setDeathState(DeathState s, bool /*despawn = false*/)
+@@ -1089,6 +1089,11 @@ void Player::setDeathState(DeathState s, bool /*despawn = false*/)
      if (IsAlive() && !cur)
          //clear aura case after resurrection by another way (spells will be applied before next death)
          SetUInt32Value(PLAYER_SELF_RES_SPELL, 0);
@@ -6967,7 +6967,7 @@ index ed17d0d68..7a17892a3 100644
  }
  
  void Player::SetRestState(uint32 triggerId)
-@@ -10765,14 +10770,29 @@ void Player::InitDisplayIds()
+@@ -10764,14 +10769,29 @@ void Player::InitDisplayIds()
          case GENDER_FEMALE:
              SetDisplayId(info->displayId_f);
              SetNativeDisplayId(info->displayId_f);
@@ -6998,10 +6998,10 @@ index ed17d0d68..7a17892a3 100644
  }
  
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index c36d62912..ac5f1f2a5 100644
+index 49466ab34..155e66bcf 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
-@@ -1600,6 +1600,23 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
+@@ -1601,6 +1601,23 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
              break;
      }
  
@@ -7025,7 +7025,7 @@ index c36d62912..ac5f1f2a5 100644
      damageInfo->cleanDamage = std::max(0, cleanDamage);
      damageInfo->damage = std::max(0, damage);
  
-@@ -4696,7 +4713,12 @@ bool Unit::IsUnderWater() const
+@@ -4697,7 +4714,12 @@ bool Unit::IsUnderWater() const
  
  void Unit::DeMorph()
  {
@@ -7053,10 +7053,10 @@ index 9ab8be52c..0b3f088a6 100644
      /***            METHODS RELATED TO COMBATS             ***/
      /*********************************************************/
 diff --git a/src/server/game/Spells/Auras/SpellAuraEffects.cpp b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
-index 41e4fc1b9..ad0e28156 100644
+index c95bbc775..b581db656 100644
 --- a/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 +++ b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
-@@ -1969,6 +1969,24 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
+@@ -1970,6 +1970,24 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
  
      modelid = target->GetModelForForm(form, GetId());
  
