@@ -6952,7 +6952,7 @@ index 760cec604..bed37378d 100644
  //end npcbot
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 676f43389..c7a2b89e8 100644
+index b36145102..53530d985 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -1089,6 +1089,11 @@ void Player::setDeathState(DeathState s, bool /*despawn = false*/)
@@ -6967,7 +6967,7 @@ index 676f43389..c7a2b89e8 100644
  }
  
  void Player::SetRestState(uint32 triggerId)
-@@ -10764,14 +10769,29 @@ void Player::InitDisplayIds()
+@@ -10735,14 +10740,29 @@ void Player::InitDisplayIds()
          case GENDER_FEMALE:
              SetDisplayId(info->displayId_f);
              SetNativeDisplayId(info->displayId_f);
@@ -6998,7 +6998,7 @@ index 676f43389..c7a2b89e8 100644
  }
  
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 49466ab34..155e66bcf 100644
+index 167045d59..3b9587d06 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -1601,6 +1601,23 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
