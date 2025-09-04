@@ -42,7 +42,7 @@
 #include "botmgr.h"
 //end npcbot
 
-GameObject::GameObject() : WorldObject(false), MovableMapObject(),
+GameObject::GameObject() : WorldObject(), MovableMapObject(),
     m_model(nullptr), m_goValue(), m_AI(nullptr)
 {
     m_objectType |= TYPEMASK_GAMEOBJECT;
@@ -725,7 +725,7 @@ void GameObject::Update(uint32 diff)
                         {
                             Acore::NearestAttackableNoTotemUnitInObjectRangeCheck checker(this, owner, radius);
                             Acore::UnitSearcher<Acore::NearestAttackableNoTotemUnitInObjectRangeCheck> searcher(this, target, checker);
-                            Cell::VisitAllObjects(this, searcher, radius);
+                            Cell::VisitObjects(this, searcher, radius);
                         }
                         else                                        // environmental trap
                         {
@@ -734,7 +734,7 @@ void GameObject::Update(uint32 diff)
                             Player* player = nullptr;
                             Acore::AnyPlayerInObjectRangeCheck checker(this, radius, true, true);
                             Acore::PlayerSearcher<Acore::AnyPlayerInObjectRangeCheck> searcher(this, player, checker);
-                            Cell::VisitWorldObjects(this, searcher, radius);
+                            Cell::VisitObjects(this, searcher, radius);
                             target = player;
 
                         //npcbot
@@ -743,7 +743,7 @@ void GameObject::Update(uint32 diff)
                             Creature* bot = nullptr;
                             std::function bot_checker = [=, this](Creature const* c) { return c->IsNPCBot() && c->IsAlive() && IsWithinDistInMap(c, radius); };
                             Acore::CreatureSearcher searcher(this, bot, bot_checker);
-                            Cell::VisitAllObjects(this, searcher, radius);
+                            Cell::VisitObjects(this, searcher, radius);
                             target = bot;
                         }
                         //end npcbot
@@ -914,7 +914,7 @@ void GameObject::Update(uint32 diff)
                 if (!m_spawnedByDefault)
                 {
                     m_respawnTime = 0;
-                    DestroyForNearbyPlayers(); // xinef: old UpdateObjectVisibility();
+                    DestroyForVisiblePlayers(); // xinef: old UpdateObjectVisibility();
                     return;
                 }
 
@@ -925,7 +925,7 @@ void GameObject::Update(uint32 diff)
                 if (GetMap()->IsDungeon())
                     SaveRespawnTime();
 
-                DestroyForNearbyPlayers(); // xinef: old UpdateObjectVisibility();
+                DestroyForVisiblePlayers(); // xinef: old UpdateObjectVisibility();
                 break;
             }
     }
@@ -1418,7 +1418,7 @@ GameObject* GameObject::LookupFishingHoleAround(float range)
     Acore::NearestGameObjectFishingHole u_check(*this, range);
     Acore::GameObjectSearcher<Acore::NearestGameObjectFishingHole> checker(this, ok, u_check);
 
-    Cell::VisitGridObjects(this, checker, range);
+    Cell::VisitObjects(this, checker, range);
     return ok;
 }
 
@@ -3175,4 +3175,22 @@ std::string GameObject::GetDebugInfo() const
     sstr << WorldObject::GetDebugInfo() << "\n"
         << "SpawnId: " << GetSpawnId() << " GoState: " << std::to_string(GetGoState()) << " ScriptId: " << GetScriptId() << " AIName: " << GetAIName();
     return sstr.str();
+}
+
+// Note: This is called in a tight (heavy) loop, is it critical that all checks are FAST and are hopefully only simple conditionals.
+bool GameObject::IsUpdateNeeded()
+{
+    if (WorldObject::IsUpdateNeeded())
+        return true;
+
+    if (GetMap()->isCellMarked(GetCurrentCell().GetCellCoord().GetId()))
+        return true;
+
+    if (!GetObjectVisibilityContainer().GetVisiblePlayersMap().empty())
+        return true;
+
+    if (IsTransport())
+        return true;
+
+    return false;
 }

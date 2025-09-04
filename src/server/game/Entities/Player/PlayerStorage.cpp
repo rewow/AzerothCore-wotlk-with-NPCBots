@@ -2582,8 +2582,6 @@ Item* Player::StoreItem(ItemPosCountVec const& dest, Item* pItem, bool update)
         return nullptr;
 
     Item* lastItem = pItem;
-    ItemTemplate const* proto = pItem->GetTemplate();
-
     for (ItemPosCountVec::const_iterator itr = dest.begin(); itr != dest.end();)
     {
         uint16 pos = itr->pos;
@@ -2599,13 +2597,6 @@ Item* Player::StoreItem(ItemPosCountVec const& dest, Item* pItem, bool update)
 
         lastItem = _StoreItem(pos, pItem, count, true, update);
     }
-
-    // cast after item storing - some checks in checkcast requires item to be present!!
-    if (lastItem)
-        for (uint8 i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
-            if (proto->Spells[i].SpellTrigger == ITEM_SPELLTRIGGER_ON_NO_DELAY_USE && proto->Spells[i].SpellId > 0) // On obtain trigger
-                if (!HasAura(proto->Spells[i].SpellId))
-                    CastSpell(this, proto->Spells[i].SpellId, true, lastItem);
 
     return lastItem;
 }
@@ -2669,6 +2660,9 @@ Item* Player::_StoreItem(uint16 pos, Item* pItem, uint32 count, bool clone, bool
         AddEnchantmentDurations(pItem);
         AddItemDurations(pItem);
 
+        if (bag == INVENTORY_SLOT_BAG_0 || (bag >= INVENTORY_SLOT_BAG_START && bag < INVENTORY_SLOT_BAG_END))
+            ApplyItemObtainSpells(pItem, true);
+
         return pItem;
     }
     else
@@ -2704,6 +2698,9 @@ Item* Player::_StoreItem(uint16 pos, Item* pItem, uint32 count, bool clone, bool
         AddEnchantmentDurations(pItem2);
 
         pItem2->SetState(ITEM_CHANGED, this);
+
+        if (bag == INVENTORY_SLOT_BAG_0 || (bag >= INVENTORY_SLOT_BAG_START && bag < INVENTORY_SLOT_BAG_END))
+            ApplyItemObtainSpells(pItem2, true);
 
         return pItem2;
     }
@@ -3051,10 +3048,7 @@ void Player::DestroyItem(uint8 bag, uint8 slot, bool update)
         pItem->ClearSoulboundTradeable(this);
         RemoveTradeableItem(pItem);
 
-        ItemTemplate const* proto = pItem->GetTemplate();
-        for (uint8 i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
-            if (proto->Spells[i].SpellTrigger == ITEM_SPELLTRIGGER_ON_NO_DELAY_USE && proto->Spells[i].SpellId > 0) // On obtain trigger
-                RemoveAurasDueToSpell(proto->Spells[i].SpellId);
+        ApplyItemObtainSpells(pItem, false);
 
         ItemRemovedQuestCheck(pItem->GetEntry(), pItem->GetCount());
 
@@ -3107,8 +3101,9 @@ void Player::DestroyItem(uint8 bag, uint8 slot, bool update)
             pBag->RemoveItem(slot, update);
 
         // Xinef: item is removed, remove loot from storage if any
-        if (proto->HasFlag(ITEM_FLAG_HAS_LOOT))
-            sLootItemStorage->RemoveStoredLoot(pItem->GetGUID());
+        if (ItemTemplate const* proto = pItem->GetTemplate())
+            if (proto->HasFlag(ITEM_FLAG_HAS_LOOT))
+                sLootItemStorage->RemoveStoredLoot(pItem->GetGUID());
 
         if (IsInWorld() && update)
         {
@@ -4621,8 +4616,15 @@ void Player::ApplyEnchantment(Item* item, EnchantmentSlot slot, bool apply, bool
                             HandleBaseModValue(SHIELD_BLOCK_VALUE, FLAT_MOD, float(enchant_amount), apply);
                             LOG_DEBUG("entities.player.items", "+ {} BLOCK_VALUE", enchant_amount);
                             break;
-                        case ITEM_MOD_SPELL_HEALING_DONE:   // deprecated
-                        case ITEM_MOD_SPELL_DAMAGE_DONE:    // deprecated
+                        /// @deprecated item mods
+                        case ITEM_MOD_SPELL_HEALING_DONE:
+                            ApplySpellHealingBonus(enchant_amount, apply);
+                            LOG_DEBUG("entities.player.items", "+ {} SPELL_HEALING", enchant_amount);
+                            break;
+                        case ITEM_MOD_SPELL_DAMAGE_DONE:
+                            ApplySpellDamageBonus(enchant_amount, apply);
+                            LOG_DEBUG("entities.player.items", "+ {} SPELL_DAMAGE", enchant_amount);
+                            break;
                         default:
                             break;
                     }
@@ -6482,9 +6484,16 @@ void Player::_LoadSpells(PreparedQueryResult result)
     if (result)
     {
         do
-            // xinef: checked
-            addSpell((*result)[0].Get<uint32>(), (*result)[1].Get<uint8>(), true);
-        while (result->NextRow());
+        {
+            Field* fields = result->Fetch();
+            uint32 spellId = fields[0].Get<uint32>();
+            uint8 specMask = fields[1].Get<uint8>();
+
+            if (CheckSkillLearnedBySpell(spellId))
+                addSpell(spellId, specMask, true);
+            else
+                removeSpell(spellId, SPEC_MASK_ALL, false);
+        } while (result->NextRow());
     }
 }
 
