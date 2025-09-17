@@ -7109,7 +7109,7 @@ index 2e93f05de..ec1f538a5 100644
  //end npcbot
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index e65bfa5ed..320d8a2f1 100644
+index d0d157904..c9ec46365 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -1093,6 +1093,11 @@ void Player::setDeathState(DeathState s, bool /*despawn = false*/)
@@ -7124,7 +7124,7 @@ index e65bfa5ed..320d8a2f1 100644
  }
  
  void Player::SetRestState(uint32 triggerId)
-@@ -10815,14 +10820,29 @@ void Player::InitDisplayIds()
+@@ -10823,14 +10828,29 @@ void Player::InitDisplayIds()
          case GENDER_FEMALE:
              SetDisplayId(info->displayId_f);
              SetNativeDisplayId(info->displayId_f);
@@ -7155,7 +7155,7 @@ index e65bfa5ed..320d8a2f1 100644
  }
  
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 711293c57..ef8b03477 100644
+index 8ce170a35..3f53c4ad3 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
 @@ -1616,6 +1616,23 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
@@ -7210,18 +7210,19 @@ index 2cf6125fe..da4cca28f 100644
      /***            METHODS RELATED TO COMBATS             ***/
      /*********************************************************/
 diff --git a/src/server/game/Maps/Map.cpp b/src/server/game/Maps/Map.cpp
-index 89deb10ea..607483d33 100644
+index 11d601b51..49192dcab 100644
 --- a/src/server/game/Maps/Map.cpp
 +++ b/src/server/game/Maps/Map.cpp
-@@ -658,7 +658,8 @@ void Map::RemoveFromMap(T* obj, bool remove)
+@@ -729,7 +729,9 @@ void Map::RemoveFromMap(T* obj, bool remove)
  {
      obj->RemoveFromWorld();
  
 -    obj->RemoveFromGrid();
 +    if (obj->IsInGrid())
 +        obj->RemoveFromGrid();
- 
-     obj->ResetMap();
++
+     if (obj->IsFarVisible())
+         RemoveWorldObjectFromFarVisibleMap(obj);
  
 diff --git a/src/server/game/Spells/Auras/SpellAuraEffects.cpp b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 index d824e5801..9a59a2132 100644
