@@ -2570,8 +2570,6 @@ public:
     bool IsInWhisperWhiteList(ObjectGuid guid);
     void RemoveFromWhisperWhiteList(ObjectGuid guid) { WhisperList.remove(guid); }
 
-    bool SetDisableGravity(bool disable, bool packetOnly = false, bool updateAnimationTier = true) override;
-
     [[nodiscard]] bool CanFly() const override { return m_movementInfo.HasMovementFlag(MOVEMENTFLAG_CAN_FLY); }
     [[nodiscard]] bool CanEnterWater() const override { return true; }
     bool IsFreeFlying() const { return HasAuraType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED) || HasAuraType(SPELL_AURA_FLY); }
@@ -2638,6 +2636,15 @@ public:
     void SendSystemMessage(std::string_view msg, bool escapeCharacters = false);
 
     std::string GetDebugInfo() const override;
+
+    bool IsExpectingChangeTransport() const { return _expectingChangeTransport; }
+    void SetExpectingChangeTransport(bool state) { _expectingChangeTransport = state; }
+
+    uint32 GetPendingFlightChange() const { return _pendingFlightChangeCounter; }
+    void SetPendingFlightChange(uint32 counter) { _pendingFlightChangeCounter = counter; }
+
+    void SetMapChangeOrderCounter() { _mapChangeOrderCounter = GetSession()->GetOrderCounter(); }
+    uint32 GetMapChangeOrderCounter() { return _mapChangeOrderCounter; }
 
     /*****************************************************************/
     /***                        NPCBOT SYSTEM                      ***/
@@ -3039,6 +3046,10 @@ private:
     PlayerSettingMap m_charSettingsMap;
 
     Seconds m_creationTime;
+
+    bool _expectingChangeTransport;
+    uint32 _pendingFlightChangeCounter;
+    uint32 _mapChangeOrderCounter;
 };
 
 void AddItemsSetItem(Player* player, Item* item);
