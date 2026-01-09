@@ -3545,6 +3545,8 @@ void Player::SwapItem(uint16 src, uint16 dst)
     Item* pSrcItem = GetItemByPos(srcbag, srcslot);
     Item* pDstItem = GetItemByPos(dstbag, dstslot);
 
+    bool isUnequipingItem = false;
+
     if (!pSrcItem)
         return;
 
@@ -3575,6 +3577,7 @@ void Player::SwapItem(uint16 src, uint16 dst)
             SendEquipError(msg, pSrcItem, pDstItem);
             return;
         }
+        isUnequipingItem = true;
     }
 
     // anti-wpe
@@ -3674,6 +3677,9 @@ void Player::SwapItem(uint16 src, uint16 dst)
             EquipItem(dest, pSrcItem, true);
             AutoUnequipOffhandIfNeed();
         }
+
+        if (isUnequipingItem)
+            sScriptMgr->OnPlayerUnequip(this, pSrcItem);
 
         return;
     }
