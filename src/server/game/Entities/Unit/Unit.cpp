@@ -4305,6 +4305,10 @@ void Unit::_UpdateAutoRepeatSpell()
 
         // Reset attack
         resetAttackTimer(RANGED_ATTACK);
+
+        // Blizzlike: Reset melee swing timers when performing ranged attack
+        resetAttackTimer(BASE_ATTACK);
+        resetAttackTimer(OFF_ATTACK);
     }
 }
 
@@ -15716,7 +15720,7 @@ void Unit::setDeathState(DeathState s, bool despawn)
     }
     else if (s == DeathState::JustRespawned)
     {
-        RemoveFlag (UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE); // clear skinnable for creature and player (at battleground)
+        RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE); // clear skinnable for creature and player (at battleground)
     }
 }
 
@@ -22485,7 +22489,7 @@ void Unit::PatchValuesUpdate(ByteBuffer& valuesUpdateBuf, BuildValuesCachePosPoi
             appendValue &= ~UNIT_NPC_FLAG_VENDOR_MASK;
         }
 
-        if (!creature->IsValidTrainerForPlayer(target, &appendValue))
+        if (!target->CanSeeTrainer(creature))
             appendValue &= ~UNIT_NPC_FLAG_TRAINER;
 
         valuesUpdateBuf.put(posPointers.UnitNPCFlagsPos, appendValue);
