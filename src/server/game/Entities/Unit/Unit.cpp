@@ -22483,6 +22483,11 @@ void Unit::PatchValuesUpdate(ByteBuffer& valuesUpdateBuf, BuildValuesCachePosPoi
         if (!target->CanSeeSpellClickOn(creature))
             appendValue &= ~UNIT_NPC_FLAG_SPELLCLICK;
 
+        //npcbot: make wandering bots non-interactive for non-GM players
+        if ((appendValue & UNIT_NPC_FLAG_GOSSIP) && !target->IsGameMaster() && IsNPCBotOrPet() && creature->IsWandererBot())
+            appendValue &= ~UNIT_NPC_FLAG_GOSSIP;
+        //end npcbot
+
         if (!target->CanSeeVendor(creature))
         {
             appendValue &= ~UNIT_NPC_FLAG_REPAIR;
