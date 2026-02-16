@@ -11434,6 +11434,20 @@ bool bot_ai::OnGossipSelect(Player* player, Creature* creature/* == me*/, uint32
                     }
                     break;
                 }
+                case 7: // Show Waypoint Data
+                {
+                    ChatHandler ch(player->GetSession());
+                    if (_travel_node_last && _travel_node_cur)
+                    {
+                        ch.PSendSysMessage("Waypoint node data:");
+                        ch.PSendSysMessage("Current: name:{}, id:{}, x:{}, y:{}, z:{}, proximity:{}", _travel_node_last->GetName(), _travel_node_last->GetWPId(), _travel_node_last->GetPositionX(), _travel_node_last->GetPositionY(), _travel_node_last->GetPositionZ(), _travel_node_last->GetProximity());
+                        ch.PSendSysMessage("Next: name:{}, id:{}, x:{}, y:{}, z:{}, proximity:{}", _travel_node_cur->GetName(), _travel_node_cur->GetWPId(), _travel_node_cur->GetPositionX(), _travel_node_cur->GetPositionY(), _travel_node_cur->GetPositionZ(), _travel_node_cur->GetProximity());
+                        ch.PSendSysMessage("Actual: x:{}, y:{}, z:{}, distance:{}", me->GetPositionX(), me->GetPositionY(), me->GetPositionZ(), me->GetDistance(_travel_node_last->GetPosition()));
+                    }
+                    else
+                        ch.PSendSysMessage("Waypoint data hasn't been created yet");
+                    break;
+                }
                 case 9: //reload config
                 {
                     close = false;
@@ -11452,7 +11466,6 @@ bool bot_ai::OnGossipSelect(Player* player, Creature* creature/* == me*/, uint32
                     close = false;
                     break;
             }
-
             if (close)
                 break;
         }
@@ -11483,6 +11496,7 @@ bool bot_ai::OnGossipSelect(Player* player, Creature* creature/* == me*/, uint32
             AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<List Roles>", GOSSIP_SENDER_DEBUG_ACTION, GOSSIP_ACTION_INFO_DEF + 4);
             AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<List Spells>", GOSSIP_SENDER_DEBUG_ACTION, GOSSIP_ACTION_INFO_DEF + 5);
             AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<List Owners>", GOSSIP_SENDER_DEBUG_ACTION, GOSSIP_ACTION_INFO_DEF + 6);
+            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<Waypoint Data>", GOSSIP_SENDER_DEBUG_ACTION, GOSSIP_ACTION_INFO_DEF + 7);
             AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<List Items>", GOSSIP_SENDER_EQUIPMENT_LIST, GOSSIP_ACTION_INFO_DEF + 1);
             AddGossipItemFor(player, GOSSIP_ICON_CHAT, "<Reload Config>", GOSSIP_SENDER_DEBUG_ACTION, GOSSIP_ACTION_INFO_DEF + 9);
 
@@ -19196,7 +19210,7 @@ void bot_ai::Evade()
                     if (nextNode->GetProximity() > 0.5f)
                     {
                         float angle = frand(0.f, float(M_PI) * 2.f);
-                        float pdist = frand(0.f, nextNode->GetProximity() * 2.f);
+                        float pdist = frand(0.f, nextNode->GetProximity());
                         x = x + pdist * std::cos(angle);
                         y = y + pdist * std::sin(angle);
                         float ground = z;
@@ -19590,7 +19604,7 @@ WanderNode const* bot_ai::GetNextWanderNode(Position const* fromPos, uint8 lvl, 
         if (me->IsInWorld() && !me->GetMap()->IsBattlegroundOrArena())
         {
             WanderNode::DoForAllMapWPs(_travel_node_cur->GetMapId(), [&nlinks, lvl = lvl, fac = faction, pos = fromPos](WanderNode const* wp) {
-                if (pos->GetExactDist2d(wp) < MAX_WANDER_NODE_DISTANCE && IsWanderNodeAvailableForBotFaction(wp, fac, true) && node_viable(wp, lvl))
+                if (pos->GetExactDist2d(wp) < MAX_WANDER_NODE_DISTANCE && IsWanderNodeAvailableForBotFaction(wp, fac, true) && node_viable(wp, lvl) && !wp->HasFlag(BotWPFlags::BOTWP_FLAG_NOT_A_START_POINT))
                     nlinks.push_back(wp);
             });
             if (!nlinks.empty())
@@ -19602,7 +19616,7 @@ WanderNode const* bot_ai::GetNextWanderNode(Position const* fromPos, uint8 lvl, 
         float mindist = 50000.0f; // Anywhere
         WanderNode::DoForAllMapWPs(_travel_node_cur->GetMapId(), [&node_new, &mindist, lvl = lvl, fac = faction, pos = fromPos](WanderNode const* wp) {
             float dist = pos->GetExactDist2d(wp);
-            if (dist < mindist && IsWanderNodeAvailableForBotFaction(wp, fac, false) && node_viable(wp, lvl))
+            if (dist < mindist && IsWanderNodeAvailableForBotFaction(wp, fac, false) && node_viable(wp, lvl) && !wp->HasFlag(BotWPFlags::BOTWP_FLAG_NOT_A_START_POINT))
             {
                 mindist = dist;
                 node_new = wp;
@@ -19627,7 +19641,7 @@ WanderNode const* bot_ai::GetNextWanderNode(Position const* fromPos, uint8 lvl, 
 
     //Overleveled or died: no viable nodes in reach, find one for teleport
     WanderNode::DoForAllWPs([&nlinks, lvl = lvl, fac = faction](WanderNode const* wp) {
-        if (IsWanderNodeAvailableForBotFaction(wp, fac, true) && wp->HasFlag(BotWPFlags::BOTWP_FLAG_SPAWN) && node_viable(wp, lvl))
+        if (IsWanderNodeAvailableForBotFaction(wp, fac, true) && wp->HasFlag(BotWPFlags::BOTWP_FLAG_SPAWN) && node_viable(wp, lvl) && !wp->HasFlag(BotWPFlags::BOTWP_FLAG_NOT_A_START_POINT))
             nlinks.push_back(wp);
     });
 
