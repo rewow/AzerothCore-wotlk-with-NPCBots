@@ -679,16 +679,8 @@ namespace lfg
                                     break;
                                 }
 
-                                if (/*Creature* bot = */ObjectAccessor::GetCreature(*plrg, itr->first))
+                                if (ObjectAccessor::GetCreature(*plrg, itr->first))
                                 {
-                                    //if (!(bot->GetBotRoles() & ( 1 | 2 | 4 ))) //(BOT_ROLE_TANK | BOT_ROLE_DPS | BOT_ROLE_HEAL)
-                                    //{
-                                    //    //no valid roles - reqs are not met
-                                    //    (ChatHandler(plrg->GetSession())).PSendSysMessage("Your bot {} does not have any viable roles assigned.", bot->GetName());
-                                    //    joinData.result = LFG_JOIN_PARTY_NOT_MEET_REQS;
-                                    //    continue;
-                                    //}
-
                                     ++memberCount;
                                     players.insert(itr->first);
                                 }
@@ -799,7 +791,7 @@ namespace lfg
             // Send update to player
             LfgUpdateData updateData = LfgUpdateData(LFG_UPDATETYPE_JOIN_QUEUE, dungeons, comment);
             //npcbot
-            std::map<ObjectGuid, uint8> brolemap;
+            std::vector<std::pair<ObjectGuid, uint8>> bot_roles;
             //end npcbot
             for (GroupReference* itr = grp->GetFirstMember(); itr != nullptr; itr = itr->next())
             {
@@ -854,7 +846,7 @@ namespace lfg
                         if (roles & PLAYER_ROLE_HEALER)
                             broles &= ~PLAYER_ROLE_HEALER;
 
-                        brolemap[bguid] = broles;
+                        bot_roles.emplace_back(bguid, broles);
                     }
                     //end npcbot
                 }
@@ -862,8 +854,8 @@ namespace lfg
             // Update leader role
             UpdateRoleCheck(gguid, guid, roles);
             //npcbot - update bots' roles
-            for (std::map<ObjectGuid, uint8>::const_iterator it = brolemap.begin(); it != brolemap.end(); ++it)
-                UpdateRoleCheck(gguid, it->first, it->second);
+            for (decltype(bot_roles)::value_type const& brole_pair : bot_roles)
+                UpdateRoleCheck(gguid, brole_pair.first, brole_pair.second);
             //end npcbot
         }
         else                                                   // Add player to queue
@@ -2771,6 +2763,18 @@ namespace lfg
         GroupsStore[gguid].AddPlayer(guid);
     }
 
+    void LFGMgr::AddPlayerQueuedForRandomDungeonToGroup(ObjectGuid gguid, ObjectGuid guid)
+    {
+        const LfgDungeonSet& dungeons = GetSelectedDungeons(guid);
+        if (dungeons.empty())
+            return;
+
+        uint32 dungeonId = *dungeons.begin();
+        LFGDungeonData const* dungeon = GetLFGDungeon(dungeonId);
+        if (dungeon && (dungeon->type == LFG_TYPE_RANDOM))
+            GroupsStore[gguid].AddRandomQueuedPlayer(guid);
+    }
+
     void LFGMgr::SetLeader(ObjectGuid gguid, ObjectGuid leader)
     {
         GroupsStore[gguid].SetLeader(leader);
@@ -3027,4 +3031,12 @@ namespace lfg
             sDisableMgr->IsDisabledFor(DISABLE_TYPE_LFG_MAP, mapId, nullptr);
     }
 
+    bool LFGMgr::IsPlayerQueuedForRandomDungeon(ObjectGuid guid)
+    {
+        auto gguid = GetGroup(guid);
+        if (!gguid)
+            return false;
+
+        return GroupsStore[gguid].IsRandomQueuedPlayer(guid);
+    }
 } // namespace lfg
