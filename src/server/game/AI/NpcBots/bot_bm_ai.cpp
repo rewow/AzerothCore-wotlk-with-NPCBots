@@ -673,14 +673,14 @@ public:
 
             target->PlayDistanceSound(SOUND_AXE_2H_IMPACT_FLESH_CRIT);
 
-            DamageInfo dinfo(*calcdinfo);
+            DamageInfo dinfo(*calcdinfo, 0);
 
             me->SendSpellNonMeleeDamageLog(target, sSpellMgr->GetSpellInfo(CRITICAL_STRIKE_1),
                 dinfo.GetDamage() + dinfo.GetAbsorb() + dinfo.GetResist() + dinfo.GetBlock(),
                 SPELL_SCHOOL_MASK_NORMAL, dinfo.GetAbsorb(), dinfo.GetResist(), false, dinfo.GetBlock(), true);
             CleanDamage cl(0, 0, BASE_ATTACK, MELEE_HIT_CRIT);
             Unit::DealDamage(me, target, dinfo.GetDamage(), &cl);
-            Unit::ProcDamageAndSpell(me, dinfo.GetVictim(), calcdinfo->procAttacker, calcdinfo->procVictim, calcdinfo->procEx, dinfo.GetDamage(), calcdinfo->attackType);
+            Unit::ProcSkillsAndAuras((Unit*)me, calcdinfo->target, calcdinfo->procAttacker, calcdinfo->procVictim, dinfo.GetHitMask(), dinfo.GetDamage(), BASE_ATTACK, nullptr, nullptr, -1, nullptr, &dinfo, nullptr);
             me->CombatStart(target);
 
             me->resetAttackTimer(BASE_ATTACK);
