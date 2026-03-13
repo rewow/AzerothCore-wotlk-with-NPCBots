@@ -40,6 +40,7 @@
 #include "ObjectMgr.h"
 #include "PathGenerator.h"
 #include "PointMovementGenerator.h"
+#include "RaceMgr.h"
 #include "ScriptedGossip.h"
 #include "ScriptMgr.h"
 #include "SpellAuraEffects.h"
@@ -6036,9 +6037,9 @@ uint32 bot_ai::_selectMountSpell() const
                 static const MountArray MOUNTS_280_HORDE = { BOT_MOUNT_FLY_HORDE_280_1, BOT_MOUNT_FLY_HORDE_280_2, BOT_MOUNT_FLY_HORDE_280_3 };
 
                 Optional<MountArray> myMounts;
-                if (me->GetRaceMask() & RACEMASK_ALLIANCE)
+                if (me->GetRaceMask() & sRaceMgr->GetAllianceRaceMask())
                     myMounts = useSlowMount ? MOUNTS_150_ALLIANCE : MOUNTS_280_ALLIANCE;
-                else if (me->GetRaceMask() & RACEMASK_HORDE)
+                else if (me->GetRaceMask() & sRaceMgr->GetHordeRaceMask())
                     myMounts = useSlowMount ? MOUNTS_150_HORDE : MOUNTS_280_HORDE;
 
                 if (myMounts)
@@ -19536,18 +19537,28 @@ void bot_ai::GetHomePosition(uint16& mapid, Position* pos) const
 }
 
 //WANDER NODES
-/*static */bool bot_ai::IsWanderNodeAvailableForBotFaction(WanderNode const* wp, uint32 factionTemplateId, bool teleport)
+/*static */bool bot_ai::IsWanderNodeAvailableForBotFaction(WanderNode const* wp, uint32 factionTemplateId, bool teleport, bool spawn)
 {
-    if (!teleport)
+    if (!teleport && !spawn && wp->HasFlag(BotWPFlags::BOTWP_FLAG_MOVEMENT_IGNORES_FACTION))
+        return true;
+
+    MapEntry const* mapEntry = sMapStore.LookupEntry(wp->GetMapId());
+    if (teleport && !mapEntry->IsContinent())
+        return false;
+
+    if ((teleport || spawn) && (wp->GetLevels().second <= 10 || mapEntry->IsBattlegroundOrArena()))
     {
-        if (wp->HasFlag(BotWPFlags::BOTWP_FLAG_MOVEMENT_IGNORES_FACTION))
-            return true;
-    }
-    else
-    {
-        MapEntry const* mapEntry = sMapStore.LookupEntry(wp->GetMapId());
-        if (!mapEntry->IsContinent())
-            return false;
+        switch (BotDataMgr::GetTeamIdForFaction(factionTemplateId))
+        {
+            case TEAM_ALLIANCE:
+                return wp->HasFlag(BotWPFlags::BOTWP_FLAG_ALLIANCE_ONLY);
+            case TEAM_HORDE:
+                return wp->HasFlag(BotWPFlags::BOTWP_FLAG_HORDE_ONLY);
+            case TEAM_NEUTRAL:
+                return true;
+            default:
+                return true;
+        }
     }
 
     switch (BotDataMgr::GetTeamIdForFaction(factionTemplateId))

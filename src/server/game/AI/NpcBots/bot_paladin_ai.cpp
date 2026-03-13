@@ -7,6 +7,7 @@
 #include "Item.h"
 #include "Map.h"
 #include "Player.h"
+#include "RaceMgr.h"
 #include "ScriptMgr.h"
 #include "SpellAuraEffects.h"
 #include "SpellMgr.h"
@@ -905,7 +906,7 @@ public:
             uint32 RIGHT = GetSpell(SEAL_OF_RIGHTEOUSNESS_1);
             uint32 WISDOM = GetSpell(SEAL_OF_WISDOM_1);
             uint32 JUSTICE = GetSpell(SEAL_OF_JUSTICE_1);
-            uint32 VENGEANCE = (me->GetRaceMask() & RACEMASK_ALLIANCE) ? GetSpell(SEAL_OF_VENGEANCE_1) : GetSpell(SEAL_OF_CORRUPTION_1);
+            uint32 VENGEANCE = (me->GetRaceMask() & sRaceMgr->GetAllianceRaceMask()) ? GetSpell(SEAL_OF_VENGEANCE_1) : GetSpell(SEAL_OF_CORRUPTION_1);
 
             if (VENGEANCE && victim &&
                 (victim->GetMaxHealth() > me->GetMaxHealth() * (2 + victim->getAttackers().size() / 2) ||
@@ -2332,7 +2333,7 @@ public:
             InitSpellMap(SEAL_OF_RIGHTEOUSNESS_1);
             InitSpellMap(SEAL_OF_WISDOM_1);
             InitSpellMap(SEAL_OF_JUSTICE_1);
-            InitSpellMap((me->GetRaceMask() & RACEMASK_ALLIANCE) ? SEAL_OF_VENGEANCE_1 : SEAL_OF_CORRUPTION_1);
+            InitSpellMap((me->GetRaceMask() & sRaceMgr->GetAllianceRaceMask()) ? SEAL_OF_VENGEANCE_1 : SEAL_OF_CORRUPTION_1);
             InitSpellMap(DIVINE_INTERVENTION_1);
             InitSpellMap(DIVINE_PROTECTION_1);
             InitSpellMap(DIVINE_SHIELD_1);

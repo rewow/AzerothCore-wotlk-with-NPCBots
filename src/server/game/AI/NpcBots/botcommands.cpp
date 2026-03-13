@@ -26,6 +26,7 @@
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "Player.h"
+#include "RaceMgr.h"
 //#include "RBAC.h"
 #include "ScriptMgr.h"
 #include "SpellInfo.h"
@@ -173,7 +174,7 @@ private:
         SOUNDSETMODEL_BLOODELF_FEMALE_3     = 15520,
     };
 
-    static constexpr size_t RaceToRaceOffset[MAX_RACES] = {
+    static constexpr size_t RaceToRaceOffset[] = {
         RACE_NONE,
         0, //RACE_HUMAN
         5, //RACE_ORC
@@ -3425,7 +3426,7 @@ public:
         for (BotList::const_iterator itr = botlist.begin(); itr != botlist.end(); ++itr)
         {
             uint8 race = itr->race;
-            if (race >= MAX_RACES)
+            if (race >= sRaceMgr->GetMaxRaces())
                 race = RACE_NONE;
 
             std::string_view raceName;
@@ -3761,7 +3762,7 @@ public:
         if (!normalizePlayerName(namestr))
             return ret_err_invalid_arg(handler, "name");
 
-        if (race && !((1u << (*race - 1)) & RACEMASK_ALL_PLAYABLE))
+        if (race && !((1u << (*race - 1)) & sRaceMgr->GetPlayableRaceMask()))
             return ret_err_invalid_arg(handler, "race", race);
 
         if (can_change_appearance && *gender != GENDER_MALE && *gender != GENDER_FEMALE)

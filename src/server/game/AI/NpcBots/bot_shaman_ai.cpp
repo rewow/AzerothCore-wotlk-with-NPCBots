@@ -10,6 +10,7 @@
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "Player.h"
+#include "RaceMgr.h"
 #include "ScriptMgr.h"
 #include "SpellAuraEffects.h"
 #include "Spell.h"
@@ -27,14 +28,6 @@ Aura application bug for bot in other subgroup, maybe caused by creatorGUID mism
 
 constexpr uint8 MAX_WOLVES = 2;
 constexpr uint8 MAX_TOTEMS = 4;
-
-static constexpr uint32 TotemModelsForRace[MAX_TOTEMS][MAX_RACES-1] =
-{
-    { 0, 30758, 30754, 0, 0, 4589, 0, 30762, 0, 0, 19074 },
-    { 0, 30757, 30753, 0, 0, 4588, 0, 30761, 0, 0, 19073 },
-    { 0, 30759, 30755, 0, 0, 4587, 0, 30763, 0, 0, 19075 },
-    { 0, 30756, 30756, 0, 0, 4590, 0, 30760, 0, 0, 19071 }
-};
 
 enum ShamanBaseSpells
 {
@@ -376,7 +369,7 @@ public:
 
             BloodlustCheckTimer = 3000;
 
-            uint32 BLOODLUST = (me->GetRaceMask() & RACEMASK_ALLIANCE) ? HEROISM_1 : BLOODLUST_1;
+            uint32 BLOODLUST = (me->GetRaceMask() & sRaceMgr->GetAllianceRaceMask()) ? HEROISM_1 : BLOODLUST_1;
             if (!IsSpellReady(BLOODLUST, diff))
                 return;
 
@@ -395,7 +388,7 @@ public:
 
             //BLOODLUST = GetSpell(BLOODLUST); //not ranked
 
-            uint32 sateSpell = (me->GetRaceMask() & RACEMASK_ALLIANCE) ? EXHAUSTION_AURA : SATED_AURA;
+            uint32 sateSpell = (me->GetRaceMask() & sRaceMgr->GetAllianceRaceMask()) ? EXHAUSTION_AURA : SATED_AURA;
             Unit::AuraEffectList const& dummies = me->GetAuraEffectsByType(SPELL_AURA_DUMMY);
             for (Unit::AuraEffectList::const_iterator itr = dummies.begin(); itr != dummies.end(); ++itr)
             {
@@ -2348,7 +2341,7 @@ public:
             //Without setting creator correctly it will be impossible to use summon X elemental totems
             summon->SetCreator(me);
             //summon->SetDisplayId(sObjectMgr->GetModelForTotem(SummonSlot(slot+1), Races(me->GetRace())));
-            summon->SetDisplayId(TotemModelsForRace[slot][std::min<uint8>(me->GetRace(), MAX_RACES-1)-1]);
+            summon->SetDisplayId(sObjectMgr->GetModelForTotem(SummonSlot(totem->m_Properties->Slot), Races(me->GetRace())));
             summon->SetFaction(me->GetFaction());
             summon->SetPvP(me->IsPvP());
             summon->SetOwnerGUID(master->GetGUID());
@@ -2524,7 +2517,7 @@ public:
             InitSpellMap(PURGE_1);
             InitSpellMap(WIND_SHEAR_1);
             InitSpellMap(HEX_1);
-            InitSpellMap((me->GetRaceMask() & RACEMASK_ALLIANCE) ? HEROISM_1 : BLOODLUST_1); //at least race is constant
+            InitSpellMap((me->GetRaceMask() & sRaceMgr->GetAllianceRaceMask()) ? HEROISM_1 : BLOODLUST_1); //at least race is constant
 
             InitSpellMap(GHOST_WOLF_1);
 
