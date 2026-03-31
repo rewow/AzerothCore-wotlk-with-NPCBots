@@ -545,7 +545,7 @@ public:
             if (mytar->CanHaveThreatList())
             {
                 if (IsSpellReady(FEINT_1, diff) && !stealthed && !IsTank() && mytar->GetVictim() == me && Rand() < 35 &&
-                    energy >= ecost(FEINT_1) && int32(mytar->GetThreatMgr().GetThreatList().size()) > 1 &&
+                    energy >= ecost(FEINT_1) && int32(mytar->GetThreatMgr().GetThreatListSize()) > 1 &&
                     int32(mytar->getAttackers().size()) > 1)
                 {
                     if (doCast(mytar, GetSpell(FEINT_1)))

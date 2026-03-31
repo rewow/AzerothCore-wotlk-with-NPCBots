@@ -995,6 +995,30 @@ std::string Object::GetDebugInfo() const
     return sstr.str();
 }
 
+UnitMoveType MovementInfo::GetSpeedType(uint32 moveFlags)
+{
+    if (moveFlags & MOVEMENTFLAG_FLYING)
+    {
+        if (moveFlags & MOVEMENTFLAG_BACKWARD)
+            return MOVE_FLIGHT_BACK;
+
+        return MOVE_FLIGHT;
+    }
+    else if (moveFlags & MOVEMENTFLAG_SWIMMING)
+    {
+        if (moveFlags & MOVEMENTFLAG_BACKWARD)
+            return MOVE_SWIM_BACK;
+
+        return MOVE_SWIM;
+    }
+    else if (moveFlags & MOVEMENTFLAG_WALKING)
+        return MOVE_WALK;
+    else if (moveFlags & MOVEMENTFLAG_BACKWARD)
+        return MOVE_RUN_BACK;
+
+    return MOVE_RUN;
+}
+
 void MovementInfo::OutDebug()
 {
     LOG_INFO("movement", "MOVEMENT INFO");
@@ -1347,6 +1371,12 @@ bool WorldObject::IsWithinDist2d(const Position* pos, float dist) const
     return IsInDist2d(pos, dist + GetObjectSize());
 }
 
+// Visibility always uses 2d checks, factors in self-object size already. Gameobjects will override this for custom calc
+bool WorldObject::IsWithinSightRange(Position const& pos, float dist) const
+{
+    return IsInDist2d(&pos, dist + GetObjectSize());
+}
+
 // use only if you will sure about placing both object at same map
 bool WorldObject::IsWithinDist(WorldObject const* obj, float dist2compare, bool is3D, bool incOwnRadius, bool incTargetRadius) const
 {
@@ -1659,7 +1689,7 @@ float WorldObject::GetGridActivationRange() const
 {
     if (ToPlayer())
     {
-        if (ToPlayer()->GetCinematicMgr()->IsOnCinematic())
+        if (ToPlayer()->GetCinematicMgr().IsOnCinematic())
         {
             return DEFAULT_VISIBILITY_INSTANCE;
         }
@@ -1710,7 +1740,7 @@ float WorldObject::GetSightRange(WorldObject const* target) const
                         return VISIBILITY_DIST_WINTERGRASP;
                     else if (target->IsVisibilityOverridden())
                         return target->GetVisibilityOverrideDistance();
-                    else if (ToPlayer()->GetCinematicMgr()->IsOnCinematic())
+                    else if (ToPlayer()->GetCinematicMgr().IsOnCinematic())
                         return DEFAULT_VISIBILITY_INSTANCE;
                     else
                         return GetMap()->GetVisibilityRange();
@@ -1779,10 +1809,10 @@ bool WorldObject::CanSeeOrDetect(WorldObject const* obj, bool ignoreStealth, boo
     if (distanceCheck)
     {
         bool corpseCheck = false;
-        WorldObject const* viewpoint = this;
+        Position const* sightPosition = this;
         if (Player const* thisPlayer = ToPlayer())
         {
-            viewpoint = thisPlayer->GetSeer();
+            sightPosition = &thisPlayer->GetSightPosition();
 
             if (Creature const* creature = obj->ToCreature())
             {
@@ -1828,8 +1858,7 @@ bool WorldObject::CanSeeOrDetect(WorldObject const* obj, bool ignoreStealth, boo
                 return false;
         }
 
-        // Xinef: check reversely obj vs viewpoint, object could be a gameObject which overrides _IsWithinDist function to include gameobject size
-        if (!corpseCheck && !viewpoint->IsWithinDist(obj, GetSightRange(obj), false))
+        if (!corpseCheck && !obj->IsWithinSightRange(*sightPosition, GetSightRange(obj)))
             return false;
     }
 

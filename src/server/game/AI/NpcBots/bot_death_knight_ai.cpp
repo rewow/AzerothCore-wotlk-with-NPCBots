@@ -291,7 +291,7 @@ public:
             //        if (_runes[j].CurrentRune == i && _runes[j].Cooldown <= 0)
             //            runesLeft[i]++;
             //str << " left" << " " << runesLeft[0] << " " << runesLeft[1] << " " << runesLeft[2] << " " << runesLeft[3];
-            //BotWhisper(str.str().c_str());
+            //BotWhisper(str.view());
 
             me->ModifyPower(POWER_RUNIC_POWER, int32(src->runePowerGain * runicpowerIncomeMult));
 
@@ -770,7 +770,7 @@ public:
 
             //CHAINS OF ICE
             if (IsSpellReady(CHAINS_OF_ICE_1, diff) && Rand() < 65 && dist < CalcSpellMaxRange(CHAINS_OF_ICE_1) && mytar->isMoving() &&
-                !(mytar->GetTypeId() == TYPEID_UNIT && (mytar->ToCreature()->GetCreatureTemplate()->MechanicImmuneMask & (1<<(MECHANIC_SNARE-1)))) &&
+                !(mytar->GetTypeId() == TYPEID_UNIT && (mytar->ToCreature()->HasMechanicTemplateImmunity(1ull<<(MECHANIC_SNARE-1)))) &&
                 HaveRunes(CHAINS_OF_ICE_1) && !CCed(mytar, true) && (!u || (!IsTank(u) && IsInBotParty(u))) &&
                 !mytar->HasAuraWithMechanic(1<<MECHANIC_SNARE))
             {
@@ -791,7 +791,7 @@ public:
             }
 
             //Diseases in general
-            bool noDiseases = (mytar->GetTypeId() == TYPEID_UNIT && (mytar->ToCreature()->GetCreatureTemplate()->MechanicImmuneMask & (1<<(MECHANIC_INFECTED-1))));
+            bool noDiseases = mytar->GetTypeId() == TYPEID_UNIT && (mytar->ToCreature()->HasMechanicTemplateImmunity(1ull<<(MECHANIC_INFECTED-1)));
             AuraEffect const* blop = noDiseases ? nullptr : mytar->GetAuraEffect(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_DEATHKNIGHT, 0x0, 0x2000000, 0x0, me->GetGUID());
             AuraEffect const* frof = noDiseases ? nullptr : mytar->GetAuraEffect(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_DEATHKNIGHT, 0x0, 0x4000000, 0x0, me->GetGUID());
             AuraEffect const* ebop = (noDiseases || GetSpec() != BOT_SPEC_DK_UNHOLY) ? nullptr : mytar->GetAuraEffect(SPELL_AURA_LINKED, SPELLFAMILY_DEATHKNIGHT, 0x0, 0x800, 0x0, me->GetGUID());
@@ -1499,7 +1499,7 @@ public:
                     baseThreat += threatEntry->flatMod;
 
                     if (baseThreat)
-                        target->GetThreatMgr().AddThreat(me, baseThreat * 6.f, spell->GetSchoolMask(), spell);
+                        target->GetThreatMgr().AddThreat(me, baseThreat * 6.f, spell);
                 }
             }
 

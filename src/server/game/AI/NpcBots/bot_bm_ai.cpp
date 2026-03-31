@@ -102,7 +102,6 @@ public:
                 ObjectGuid _targetGuid;
                 bool _windwalk;
                 CalcDamageInfo* _dinfo;
-                DelayedMeleeDamageEvent(DelayedMeleeDamageEvent const&);
         };
 
         class EventTerminateEvent : public BasicEvent
@@ -119,7 +118,6 @@ public:
 
             private:
                 Creature* _bot;
-                EventTerminateEvent(EventTerminateEvent const&);
         };
 
         class IllusionUnsummonEvent : public BasicEvent
@@ -137,7 +135,6 @@ public:
 
             private:
                 Creature* _bot;
-                IllusionUnsummonEvent(IllusionUnsummonEvent const&);
         };
 
         class DelayedIllusionSummonEvent : public BasicEvent
@@ -155,7 +152,6 @@ public:
 
             private:
                 Creature* _bot;
-                DelayedIllusionSummonEvent(DelayedIllusionSummonEvent const&);
         };
 
         class DisappearEvent : public BasicEvent
@@ -173,7 +169,6 @@ public:
 
             private:
                 Creature* _bot;
-                DisappearEvent(DisappearEvent const&);
         };
 
         void _calcIllusionPositions()
@@ -584,8 +579,7 @@ public:
                     ++counter;
             }
 
-            //me->GetCombatManager().EndAllPvECombat();
-            me->getHostileRefMgr().deleteReferences();
+            me->GetCombatManager().EndAllPvECombat();
 
             if (me->GetPhaseMask() != phaseMask)
                 me->SetPhaseMask(phaseMask, true);
@@ -681,7 +675,7 @@ public:
             CleanDamage cl(0, 0, BASE_ATTACK, MELEE_HIT_CRIT);
             Unit::DealDamage(me, target, dinfo.GetDamage(), &cl);
             Unit::ProcSkillsAndAuras((Unit*)me, calcdinfo->target, calcdinfo->procAttacker, calcdinfo->procVictim, dinfo.GetHitMask(), dinfo.GetDamage(), BASE_ATTACK, nullptr, nullptr, -1, nullptr, &dinfo, nullptr);
-            me->CombatStart(target);
+            me->AtTargetAttacked(target, false);
 
             me->resetAttackTimer(BASE_ATTACK);
             Windwalk_Timer = 0;
@@ -730,8 +724,7 @@ public:
                     me->AttackStop();
 
                 //SpellEffectSanctuary
-                //me->GetCombatManager().SuppressPvPCombat();
-                me->getHostileRefMgr().UpdateVisibility(false);
+                me->GetCombatManager().SuppressPvPCombat();
                 Unit::AttackerSet const& attackers = me->getAttackers();
                 for (Unit::AttackerSet::const_iterator itr = attackers.begin(); itr != attackers.end();)
                 {
@@ -948,7 +941,7 @@ public:
 
     private:
         DelayedMeleeDamageEvent* _dmdevent;
-        typedef std::set<Creature*> Summons;
+        using Summons = std::set<Creature*>;
         Summons _minions;
         Position _illusPos[MAX_ILLUSION_POSITIONS];
         ObjectGuid _summonerGUID;

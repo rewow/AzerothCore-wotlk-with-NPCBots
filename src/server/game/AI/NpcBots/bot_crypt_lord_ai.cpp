@@ -492,7 +492,7 @@ public:
                 me->IsWithinMeleeRange(u) && me->IsValidAttackTarget(u))
             {
                 SpellInfo const* damageSpellInfo = sSpellMgr->AssertSpellInfo(SPIKED_CARAPACE_DAMAGE);
-                if (u->IsImmunedToDamage(damageSpellInfo))
+                if (u->IsImmunedToDamage(me, damageSpellInfo))
                 {
                     me->SendSpellDamageImmune(u, SPIKED_CARAPACE_DAMAGE);
                 }
@@ -813,9 +813,9 @@ public:
         uint32 _carrionBeetlesCheckTimer;
         uint32 _locustSwarmCheckTimer;
 
-        typedef std::set<Creature*> Summons;
+        using Summons = std::set<Creature*>;
         Summons _minions;
-        typedef std::array<ObjectGuid, MAX_LOCUSTS_MAXLEVEL> Swarm;
+        using Swarm = std::array<ObjectGuid, MAX_LOCUSTS_MAXLEVEL>;
         Swarm _locusts{};
     };
 };

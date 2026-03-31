@@ -66,8 +66,8 @@ enum class BotWPLevel : uint32
     BOTWP_LEVEL_ONE                         = 1,
 };
 
-constexpr uint32 WP_SPELL_ID_LINK_TO = 64034;
-constexpr uint32 WP_SPELL_ID_LINK_FROM = 64036;
+inline constexpr uint32 WP_SPELL_ID_LINK_TO = 64034;
+inline constexpr uint32 WP_SPELL_ID_LINK_FROM = 64036;
 
 class WanderNode : public Position
 {
@@ -152,7 +152,7 @@ public:
     static size_t GetMapWPsCount(uint32 mapId);
     static size_t GetWPMapsCount();
 
-    WanderNode(uint32 wpId, uint32 mapId, float x, float y, float z, float o, uint32 zoneId, uint32 areaId, std::string const& name);
+    WanderNode(uint32 wpId, uint32 mapId, float x, float y, float z, float o, uint32 zoneId, uint32 areaId, std::string&& name);
     ~WanderNode();
 
     static void RemoveAllWPs();

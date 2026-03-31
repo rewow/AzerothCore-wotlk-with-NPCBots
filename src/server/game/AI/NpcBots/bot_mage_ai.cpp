@@ -1266,7 +1266,7 @@ public:
             //{
             //    std::ostringstream msg;
             //    msg << "OnClassSpellGo: " << spellInfo->SpellName[0] << " (" << spellId << ")!";
-            //    BotWhisper(msg.str().c_str());
+            //    BotWhisper(msg.view());
             //}
 
             if (baseId == SUMMON_WATER_ELEMENTAL_1)

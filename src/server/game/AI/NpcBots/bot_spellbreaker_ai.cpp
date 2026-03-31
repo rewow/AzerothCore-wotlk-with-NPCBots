@@ -497,7 +497,7 @@ public:
             {
                 //if target has stealed aura we should skip him if possible
                 std::list<Unit*> targetsCopy = targets;
-                targets.remove_if(BOTAI_PRED::AuraedTargetExclude(success_list.front().first->GetId()));
+                std::erase_if(targets, BOTAI_PRED::AuraedTargetExclude(success_list.front().first->GetId()));
 
                 randomTarget = Bcore::Containers::SelectRandomContainerElement(!targets.empty() ? targets : targetsCopy);
             }

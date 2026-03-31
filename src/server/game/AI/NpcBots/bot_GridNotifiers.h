@@ -1,5 +1,5 @@
-#ifndef _BOT_GRIDNOTIFIERS_H
-#define _BOT_GRIDNOTIFIERS_H
+#ifndef BOT_GRIDNOTIFIERS_H
+#define BOT_GRIDNOTIFIERS_H
 
 #include "bot_ai.h"
 #include "botspell.h"
@@ -96,7 +96,6 @@ class ImmunityShieldDispelTargetCheck
         Unit const* me;
         float range;
         bot_ai const* ai;
-        ImmunityShieldDispelTargetCheck(ImmunityShieldDispelTargetCheck const&);
 };
 
 class NearestHostileUnitCheck
@@ -201,7 +200,6 @@ class NearbyHostileVehicleTargetCheck
         Unit const* veh;
         float m_range;
         bot_ai const* ai;
-        NearbyHostileVehicleTargetCheck(NearbyHostileVehicleTargetCheck const&);
 };
 
 class HostileDispelTargetCheck
@@ -284,7 +282,6 @@ class HostileDispelTargetCheck
         float m_range;
         bool checksteal;
         bot_ai const* ai;
-        HostileDispelTargetCheck(HostileDispelTargetCheck const&);
 };
 
 class AffectedTargetCheck
@@ -325,7 +322,6 @@ class AffectedTargetCheck
         uint32 const spell;
         Player const* checker;
         uint8 needhostile;
-        AffectedTargetCheck(AffectedTargetCheck const&);
 };
 
 class PolyUnitCheck
@@ -377,7 +373,6 @@ class PolyUnitCheck
     private:
         Unit const* me;
         float m_range;
-        PolyUnitCheck(PolyUnitCheck const&);
 };
 
 class FearUnitCheck
@@ -434,7 +429,6 @@ class FearUnitCheck
         Unit const* me;
         float m_range;
         bot_ai const* m_ai;
-        FearUnitCheck(FearUnitCheck const&);
 };
 
 class StunUnitCheck
@@ -512,7 +506,6 @@ class StunUnitCheck
     private:
         Unit const* me;
         float m_range;
-        StunUnitCheck(StunUnitCheck const&);
 };
 
 class UndeadCCUnitCheck
@@ -569,7 +562,6 @@ class UndeadCCUnitCheck
         bot_ai const* m_ai;
         uint32 m_spellId;
         bool _unattacked;
-        UndeadCCUnitCheck(UndeadCCUnitCheck const&);
 };
 
 class RootUnitCheck
@@ -623,7 +615,6 @@ class RootUnitCheck
         float m_range;
         bot_ai const* m_ai;
         uint32 m_spellId;
-        RootUnitCheck(RootUnitCheck const&);
 };
 
 class CastingUnitCheck
@@ -703,7 +694,7 @@ class CastingUnitCheck
             if (spellInfo->HasEffect(SPELL_EFFECT_INTERRUPT_CAST) && spellInfo->GetFirstRankSpell()->Id != 853) //hammer of justice
             {
                 if (u->GetTypeId() == TYPEID_UNIT &&
-                    (u->ToCreature()->GetCreatureTemplate()->MechanicImmuneMask & (1 << (MECHANIC_INTERRUPT - 1))))
+                    (u->ToCreature()->HasMechanicTemplateImmunity(1ull << (MECHANIC_INTERRUPT - 1))))
                     return false;
 
                 for (uint8 i = CURRENT_FIRST_NON_MELEE_SPELL; i != CURRENT_AUTOREPEAT_SPELL; ++i)
@@ -734,7 +725,7 @@ class CastingUnitCheck
             if (silenceSpell)
             {
                 if (u->GetTypeId() == TYPEID_UNIT &&
-                    (u->ToCreature()->GetCreatureTemplate()->MechanicImmuneMask & (1 << (MECHANIC_SILENCE - 1))))
+                    (u->ToCreature()->HasMechanicTemplateImmunity(1ull << (MECHANIC_SILENCE - 1))))
                     return false;
 
                 for (uint8 i = CURRENT_FIRST_NON_MELEE_SPELL; i != CURRENT_AUTOREPEAT_SPELL; ++i)
@@ -753,7 +744,6 @@ class CastingUnitCheck
         float min_range, max_range;
         uint32 m_spell;
         uint8 m_minHpPct;
-        CastingUnitCheck(CastingUnitCheck const&);
 };
 
 class SecondEnemyCheck
@@ -788,7 +778,6 @@ class SecondEnemyCheck
         float m_range, m_splashrange;
         Unit const* mytar;
         bot_ai const* ai;
-        SecondEnemyCheck(SecondEnemyCheck const&);
 };
 
 class TranquilTargetCheck
@@ -834,7 +823,6 @@ class TranquilTargetCheck
         Unit const* me;
         float min_range, max_range;
         bot_ai const* ai;
-        TranquilTargetCheck(TranquilTargetCheck const&);
 };
 
 class NearbyHostileUnitCheck
@@ -890,7 +878,6 @@ class NearbyHostileUnitCheck
         uint8 m_CCoption;
         bool free;
         WorldObject const* _source;
-        NearbyHostileUnitCheck(NearbyHostileUnitCheck const&);
 };
 
 class NearbyHostileUnitInConeCheck
@@ -943,7 +930,6 @@ class NearbyHostileUnitInConeCheck
         bot_ai const* ai;
         float cone;
         bool free;
-        NearbyHostileUnitInConeCheck(NearbyHostileUnitInConeCheck const&);
 };
 
 class NearbyFriendlyUnitCheck
@@ -981,7 +967,6 @@ class NearbyFriendlyUnitCheck
         Unit const* me;
         float max_range;
         bot_ai const* ai;
-        NearbyFriendlyUnitCheck(NearbyFriendlyUnitCheck const&);
 };
 
 class FarTauntUnitCheck
@@ -1044,7 +1029,6 @@ class FarTauntUnitCheck
         const float max_range;
         const bool targetAlly;
         const bot_ai* const ai;
-        FarTauntUnitCheck(FarTauntUnitCheck const&);
 };
 
 class ManaDrainUnitCheck
@@ -1097,7 +1081,6 @@ class ManaDrainUnitCheck
         bot_ai const* ai;
         uint32 maxPool;
         bool free;
-        ManaDrainUnitCheck(ManaDrainUnitCheck const&);
 };
 
 class NearbyRezTargetCheck
@@ -1136,7 +1119,6 @@ class NearbyRezTargetCheck
         Unit const* me;
         float max_range;
         bot_ai const* ai;
-        NearbyRezTargetCheck(NearbyRezTargetCheck const&);
 };
 
 class NearestLockedGameObjectInRangeCheck
@@ -1158,8 +1140,6 @@ public:
 private:
     WorldObject const* _unit;
     float _range;
-
-    NearestLockedGameObjectInRangeCheck(NearestLockedGameObjectInRangeCheck const&);
 };
 
 class NearestVehicleWithEmptySeatInRangeCheck
@@ -1181,8 +1161,6 @@ private:
     WorldObject const* _unit;
     float _range;
     Unit const* _exveh; //only compare, may be NULL
-
-    NearestVehicleWithEmptySeatInRangeCheck(NearestVehicleWithEmptySeatInRangeCheck const&);
 };
 
 //Professions
@@ -1257,8 +1235,6 @@ private:
 
         //return level <= 60 ? level * 5 : 300 + (((level - 60) * 15) / 2);
     }
-
-    NearbyObjectBySkillCheck(NearbyObjectBySkillCheck const&);
 };
 
 //Autolooting
@@ -1280,8 +1256,6 @@ public:
 private:
     WorldObject* _checker;
     float const _range;
-
-    NearbyLootableCreatureCheck(NearbyLootableCreatureCheck const&);
 };
 
 //AoE caster dynobject
@@ -1310,7 +1284,6 @@ class NearbyHostileAoEDynobjectCheck
     private:
         Unit const* _me;
         float _range;
-        NearbyHostileAoEDynobjectCheck(NearbyHostileAoEDynobjectCheck const&);
 };
 
 namespace BOTAI_PRED
