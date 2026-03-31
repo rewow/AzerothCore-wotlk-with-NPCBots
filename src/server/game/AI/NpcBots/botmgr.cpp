@@ -99,56 +99,47 @@ uint8 BotMgr::GetNpcBotsCount() const
 
 uint8 BotMgr::GetNpcBotsCountByRole(uint32 roles) const
 {
-    uint8 count = 0;
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
-        if (itr->second && (roles & itr->second->GetBotRoles()))
-            ++count;
-    return count;
+    return std::ranges::count_if(_bots, [=](BotMap::value_type const& kv) { return kv.second && (roles & kv.second->GetBotRoles()); });
 }
 
 uint8 BotMgr::GetNpcBotsCountByVehicleEntry(uint32 creEntry) const
 {
-    uint8 count = 0;
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
-        if (itr->second && itr->second->GetVehicle() && itr->second->GetVehicleBase()->GetEntry() == creEntry)
-            ++count;
-    return count;
+    return std::ranges::count_if(_bots, [=](BotMap::value_type const& kv) { return kv.second && kv.second->GetVehicle() && kv.second->GetVehicleBase()->GetEntry() == creEntry; });
 }
 
 uint8 BotMgr::GetNpcBotSlot(Creature const* bot) const
 {
-    uint8 count = 0;
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
+    uint8 count = 1;
+    for (auto const& [_, mbot] : _bots)
     {
+        if (mbot == bot)
+            break;
         ++count;
-        if (itr->second == bot)
-            return count;
     }
-    return 1;
+    return count;
 }
 
 uint8 BotMgr::GetNpcBotSlotByRole(uint32 roles, Creature const* bot) const
 {
-    uint8 count = 0;
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
+    uint8 count = 1;
+    for (auto const& [_, mbot] : _bots)
     {
-        if (roles & itr->second->GetBotRoles())
+        if (roles & mbot->GetBotRoles())
         {
-            if (!(roles == BOT_ROLE_DPS && (itr->second->GetBotRoles() & BOT_ROLE_TANK)))
+            if (mbot == bot)
+                break;
+            if (!(roles == BOT_ROLE_DPS && (mbot->GetBotRoles() & BOT_ROLE_TANK)))
                 ++count;
-            if (itr->second == bot)
-                return count;
         }
     }
-    return 1;
+    return count;
 }
 
 uint32 BotMgr::GetAllNpcBotsClassMask() const
 {
     uint32 classMask = 0;
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
-        classMask |= (1 << (BotMgr::GetBotEquipmentClass(itr->second->GetBotClass()) - 1));
-
+    for (auto const& [_, mbot] : _bots)
+        classMask |= (1u << (BotMgr::GetBotEquipmentClass(mbot->GetBotClass()) - 1));
     return classMask;
 }
 
@@ -202,16 +193,13 @@ void BotMgr::Update(uint32 diff)
     bool partyCombat = IsPartyInCombat(false);
     bool restrictBots = RestrictBots(_bots.begin()->second, false);
 
-    _aoespots.clear();
     if (partyCombat)
         bot_ai::CalculateAoeSpots(_owner, _aoespots);
 
     _update_lock = true;
 
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
+    for (auto const& [_, bot] : _bots)
     {
-        //guid = itr->first;
-        Creature* bot = itr->second;
         bot_ai* ai = bot->GetBotAI();
 
         if (ai->IAmFree())
@@ -355,37 +343,22 @@ bool BotMgr::IsPartyInCombat(bool is_pvp) const
 {
     if (_owner->IsInCombat() && (!is_pvp || _owner->GetCombatTimer() > 0))
         return true;
-    for (BotMap::const_iterator citr = _bots.cbegin(); citr != _bots.cend(); ++citr)
-        if (citr->second->IsInCombat() && (!is_pvp || citr->second->GetCombatTimer() > 0))
-            return true;
-    return false;
+    return std::ranges::any_of(_bots, [=](BotMap::value_type const& kv) { return kv.second->IsInCombat() && (!is_pvp || kv.second->GetCombatManager().HasPvPCombat()); });
 }
 
 bool BotMgr::HasBotClass(uint8 botclass) const
 {
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
-        if (itr->second->GetBotClass() == botclass)
-            return true;
-
-    return false;
+    return std::ranges::any_of(_bots, [=](BotMap::value_type const& kv) { return kv.second->GetBotClass() == botclass; });
 }
 
 bool BotMgr::HasBotWithSpec(uint8 spec, bool alive) const
 {
-    for (BotMap::const_iterator itr = _bots.cbegin(); itr != _bots.cend(); ++itr)
-        if (itr->second->GetBotAI()->GetSpec() == spec && (!alive || itr->second->IsAlive()))
-            return true;
-
-    return false;
+    return std::ranges::any_of(_bots, [=](BotMap::value_type const& kv) { return kv.second->GetBotAI()->GetSpec() == spec && (!alive || kv.second->IsAlive()); });
 }
 
 bool BotMgr::HasBotPetType(uint32 petType) const
 {
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
-        if (itr->second->GetBotsPet() && itr->second->GetBotAI()->GetAIMiscValue(BOTAI_MISC_PET_TYPE) == petType)
-            return true;
-
-    return false;
+    return std::ranges::any_of(_bots, [=](BotMap::value_type const& kv) { return kv.second->GetBotsPet() && kv.second->GetBotAI()->GetAIMiscValue(BOTAI_MISC_PET_TYPE) == petType; });
 }
 
 bool BotMgr::IsBeingResurrected(WorldObject const* corpse) const
@@ -393,10 +366,10 @@ bool BotMgr::IsBeingResurrected(WorldObject const* corpse) const
     std::vector<Unit const*> casters;
     if (_owner->IsNonMeleeSpellCast(false, true, true))
         casters.push_back(_owner);
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
+    for (auto const& [_, bot] : _bots)
     {
-        if (itr->second->IsNonMeleeSpellCast(false, true, true))
-            casters.push_back(itr->second);
+        if (bot->IsNonMeleeSpellCast(false, true, true))
+            casters.push_back(bot);
     }
 
     if (Group const* group = _owner->GetGroup())
@@ -412,11 +385,10 @@ bool BotMgr::IsBeingResurrected(WorldObject const* corpse) const
 
             if (player->HaveBot())
             {
-                BotMap const* map = player->GetBotMgr()->GetBotMap();
-                for (BotMap::const_iterator bitr = map->begin(); bitr != map->end(); ++bitr)
+                for (auto const& [_, bot] : *player->GetBotMgr()->GetBotMap())
                 {
-                    if (bitr->second->IsNonMeleeSpellCast(false, true, true))
-                        casters.push_back(bitr->second);
+                    if (bot->IsNonMeleeSpellCast(false, true, true))
+                        casters.push_back(bot);
                 }
             }
         }
@@ -479,7 +451,7 @@ void BotMgr::_reviveBot(Creature* bot, WorldLocation* dest)
 
 Creature* BotMgr::GetBot(ObjectGuid guid) const
 {
-    BotMap::const_iterator itr = _bots.find(guid);
+    decltype(_bots)::const_iterator itr = _bots.find(guid);
     return itr != _bots.end() ? itr->second : nullptr;
 }
 
@@ -489,13 +461,13 @@ Creature* BotMgr::GetBotByName(std::string_view name) const
     if (Utf8toWStr(name, wname))
     {
         wstrToLower(wname);
-        for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
+        for (auto const& [_, bot] : _bots)
         {
-            if (!itr->second)
+            if (!bot)
                 continue;
 
-            std::string_view basename = itr->second->GetName();
-            if (CreatureLocale const* creatureInfo = sObjectMgr->GetCreatureLocale(itr->second->GetEntry()))
+            std::string_view basename = bot->GetName();
+            if (CreatureLocale const* creatureInfo = sObjectMgr->GetCreatureLocale(bot->GetEntry()))
             {
                 uint32 loc = _owner->GetSession()->GetSessionDbLocaleIndex();
                 if (creatureInfo->Name.size() > loc && !creatureInfo->Name[loc].empty())
@@ -508,7 +480,7 @@ Creature* BotMgr::GetBotByName(std::string_view name) const
 
             wstrToLower(wbname);
             if (wbname == wname)
-                return itr->second;
+                return bot;
         }
     }
 
@@ -519,13 +491,13 @@ std::vector<Creature*> BotMgr::GetAllBotsByClass(uint8 botclass) const
 {
     std::vector<Creature*> foundBots;
     foundBots.reserve(_bots.size());
-    for (BotMap::const_iterator itr = _bots.cbegin(); itr != _bots.cend(); ++itr)
+    for (auto const& [_, bot] : _bots)
     {
-        if (!itr->second || !itr->second->IsInWorld() || !itr->second->IsAlive())
+        if (!bot|| !bot->IsInWorld() || !bot->IsAlive())
             continue;
 
-        if (itr->second->GetBotClass() == botclass)
-            foundBots.push_back(itr->second);
+        if (bot->GetBotClass() == botclass)
+            foundBots.push_back(bot);
     }
 
     return foundBots;
@@ -533,10 +505,8 @@ std::vector<Creature*> BotMgr::GetAllBotsByClass(uint8 botclass) const
 
 void BotMgr::OnOwnerSetGameMaster(bool on)
 {
-    Creature* bot;
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
+    for (auto const& [_, bot] : _bots)
     {
-        bot = itr->second;
         if (!bot)
             continue;
 
@@ -564,10 +534,8 @@ void BotMgr::OnTeleportFar(uint32 mapId, float x, float y, float z, float ori)
     Map* newMap = sMapMgr->CreateBaseMap(mapId);
     Position pos{ x, y, z, ori };
 
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
+    for (auto const& [_, bot] : _bots)
     {
-        Creature* bot = itr->second;
-
         if (bot->IsTempBot())
             continue;
 
@@ -736,7 +704,7 @@ void BotMgr::TeleportBot(Creature* bot, Map* newMap, Position const* pos, bool q
 
 void BotMgr::CleanupsBeforeBotDelete(ObjectGuid guid, uint8 removetype)
 {
-    BotMap::const_iterator itr = _bots.find(guid);
+    decltype(_bots)::const_iterator itr = _bots.find(guid);
     ASSERT(itr != _bots.end(), "Trying to remove bot which does not belong to this botmgr(b)!!");
     //ASSERT(_owner->IsInWorld(), "Trying to remove bot while not in world(b)!!");
 
@@ -789,7 +757,7 @@ void BotMgr::RemoveAllBots(uint8 removetype)
 //Bot is being abandoned by player
 void BotMgr::RemoveBot(ObjectGuid guid, uint8 removetype)
 {
-    BotMap::const_iterator itr = _bots.find(guid);
+    decltype(_bots)::const_iterator itr = _bots.find(guid);
     ASSERT(itr != _bots.end(), "Trying to remove bot which does not belong to this botmgr(a)!!");
     //ASSERT(_owner->IsInWorld(), "Trying to remove bot while not in world(a)!!");
 
@@ -1004,7 +972,7 @@ bool BotMgr::AddBotToGroup(Creature* bot)
 
 void BotMgr::RemoveBotFromBGQueue(Creature const* bot)
 {
-    for (uint8 i = 0; i < PLAYER_MAX_BATTLEGROUND_QUEUES; ++i)
+    for (auto i : NPCBots::index_array<uint32, PLAYER_MAX_BATTLEGROUND_QUEUES>)
     {
         if (BattlegroundQueueTypeId bgQueueTypeId = _owner->GetBattlegroundQueueTypeId(i))
             sBattlegroundMgr->GetBattlegroundQueue(bgQueueTypeId).RemovePlayer(bot->GetGUID(), true);
@@ -1041,8 +1009,8 @@ bool BotMgr::RemoveBotFromGroup(Creature* bot)
 
 bool BotMgr::RemoveAllBotsFromGroup()
 {
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
-        RemoveBotFromGroup(itr->second);
+    for (auto const& [_, bot] : _bots)
+        RemoveBotFromGroup(bot);
 
     return true;
 }
@@ -1082,11 +1050,8 @@ uint8 BotMgr::BotClassByClassName(std::string_view className)
     };
 
     //std::transform(className.begin(), className.end(), className.begin(), std::tolower);
-    auto iter = BotClassNamesMap.find(className);
-    if (iter != BotClassNamesMap.end())
-        return iter->second;
-
-    return BOT_CLASS_NONE;
+    decltype(BotClassNamesMap)::const_iterator ci = BotClassNamesMap.find(className);
+    return ci != BotClassNamesMap.cend() ? ci->second : static_cast<uint8>(BOT_CLASS_NONE);
 }
 
 uint8 BotMgr::GetBotPlayerClass(uint8 bot_class)
@@ -1238,26 +1203,26 @@ void BotMgr::ResetTargetIconNames()
 
 void BotMgr::ReviveAllBots()
 {
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
-        _reviveBot(itr->second);
+    for (auto const& [_, bot] : _bots)
+        _reviveBot(bot);
 }
 
 void BotMgr::SendBotCommandState(uint32 state)
 {
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
-        itr->second->GetBotAI()->SetBotCommandState(state, true);
+    for (auto const& [_, bot] : _bots)
+        bot->GetBotAI()->SetBotCommandState(state, true);
 }
 
 void BotMgr::SendBotCommandStateRemove(uint32 state)
 {
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
-        itr->second->GetBotAI()->RemoveBotCommandState(state);
+    for (auto const& [_, bot] : _bots)
+        bot->GetBotAI()->RemoveBotCommandState(state);
 }
 
 void BotMgr::SendBotAwaitState(uint8 state)
 {
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
-        itr->second->GetBotAI()->SetBotAwaitState(state);
+    for (auto const& [_, bot] : _bots)
+        bot->GetBotAI()->SetBotAwaitState(state);
 }
 
 void BotMgr::RecallAllBots(bool teleport)
@@ -1269,9 +1234,9 @@ void BotMgr::RecallAllBots(bool teleport)
     }
     else
     {
-        for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
-            if (itr->second->IsInWorld() && itr->second->IsAlive() && !bot_ai::CCed(itr->second, true))
-                itr->second->GetMotionMaster()->MovePoint(_owner->GetMapId(), *_owner, FORCED_MOVEMENT_NONE, 0.0f, false);
+        for (auto const& [_, bot] : _bots)
+            if (bot->IsInWorld() && bot->IsAlive() && !bot_ai::CCed(bot, true))
+                bot->GetMotionMaster()->MovePoint(_owner->GetMapId(), *_owner, FORCED_MOVEMENT_NONE, 0.0f, false);
     }
 }
 
@@ -1285,8 +1250,8 @@ void BotMgr::RecallBot(Creature* bot)
 
 void BotMgr::KillAllBots()
 {
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
-        KillBot(itr->second);
+    for (auto const& [_, bot] : _bots)
+        KillBot(bot);
 }
 
 void BotMgr::KillBot(Creature* bot) const
@@ -1303,27 +1268,27 @@ void BotMgr::KillBot(Creature* bot) const
 
 void BotMgr::SetBotsShouldUpdateStats()
 {
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
-        itr->second->GetBotAI()->SetShouldUpdateStats();
+    for (auto const& [_, bot] : _bots)
+        bot->GetBotAI()->SetShouldUpdateStats();
 }
 
 void BotMgr::UpdatePhaseForBots()
 {
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
+    for (auto const& [_, bot] : _bots)
     {
-        itr->second->SetPhaseMask(_owner->GetPhaseMask(), itr->second->IsInWorld());
-        if (itr->second->GetBotsPet())
-            itr->second->GetBotsPet()->SetPhaseMask(_owner->GetPhaseMask(), itr->second->GetBotsPet()->IsInWorld());
+        bot->SetPhaseMask(_owner->GetPhaseMask(), bot->IsInWorld());
+        if (bot->GetBotsPet())
+            bot->GetBotsPet()->SetPhaseMask(_owner->GetPhaseMask(), bot->GetBotsPet()->IsInWorld());
     }
 }
 
 void BotMgr::UpdatePvPForBots()
 {
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
+    for (auto const& [_, bot] : _bots)
     {
-        itr->second->SetByteValue(UNIT_FIELD_BYTES_2, 1, _owner->GetByteValue(UNIT_FIELD_BYTES_2, 1));
-        if (itr->second->GetBotsPet())
-            itr->second->GetBotsPet()->SetByteValue(UNIT_FIELD_BYTES_2, 1, _owner->GetByteValue(UNIT_FIELD_BYTES_2, 1));
+        bot->SetByteValue(UNIT_FIELD_BYTES_2, 1, _owner->GetByteValue(UNIT_FIELD_BYTES_2, 1));
+        if (bot->GetBotsPet())
+            bot->GetBotsPet()->SetByteValue(UNIT_FIELD_BYTES_2, 1, _owner->GetByteValue(UNIT_FIELD_BYTES_2, 1));
     }
 }
 
@@ -1387,7 +1352,7 @@ void BotMgr::BuildBotPartyMemberStatsPacket(ObjectGuid bot_guid, WorldPacket* da
     uint64 auraMask = 0;
     size_t maskPos = data->wpos();
     *data << uint64(auraMask);                               // placeholder
-    for (uint8 i = 0; i < MAX_AURAS_GROUP_UPDATE; ++i)
+    for (auto i : NPCBots::index_array<uint8, MAX_AURAS_GROUP_UPDATE>)
     {
         if (AuraApplication const* aurApp = const_cast<Creature*>(bot)->GetVisibleAura(i))
         {
@@ -1425,7 +1390,7 @@ void BotMgr::BuildBotPartyMemberStatsPacket(ObjectGuid bot_guid, WorldPacket* da
     *data << uint64(petAuraMask);                            // placeholder
     if (pet)
     {
-        for (uint8 i = 0; i < MAX_AURAS_GROUP_UPDATE; ++i)
+        for (auto i : NPCBots::index_array<uint8, MAX_AURAS_GROUP_UPDATE>)
         {
             if (AuraApplication const* aurApp = const_cast<Creature*>(pet)->GetVisibleAura(i))
             {
@@ -1456,8 +1421,9 @@ void BotMgr::BuildBotPartyMemberStatsChangedPacket(Creature const* bot, WorldPac
         mask |= (GROUP_UPDATE_FLAG_PET_CUR_POWER | GROUP_UPDATE_FLAG_PET_MAX_POWER);
 
     uint32 byteCount = 0;
-    for (int i = 1; i < GROUP_UPDATE_FLAGS_COUNT; ++i)
-        if (mask & (1 << i))
+    uint8 flags_count = GROUP_UPDATE_FLAGS_COUNT;
+    for (uint8 i = 1; i < flags_count; ++i)
+        if (mask & (1u << i))
             byteCount += GroupUpdateLength[i];
 
     data->Initialize(SMSG_PARTY_MEMBER_STATS, size_t(8 + 4 + byteCount));
@@ -1511,7 +1477,7 @@ void BotMgr::BuildBotPartyMemberStatsChangedPacket(Creature const* bot, WorldPac
     {
         uint64 auramask = GetBotAuraUpdateMaskForRaid(bot);
         *data << uint64(auramask);
-        for (uint32 i = 0; i < MAX_AURAS_GROUP_UPDATE; ++i)
+        for (auto i : NPCBots::index_array<uint8, MAX_AURAS_GROUP_UPDATE>)
         {
             if (auramask & (uint64(1) << i))
             {
@@ -1593,7 +1559,7 @@ void BotMgr::BuildBotPartyMemberStatsChangedPacket(Creature const* bot, WorldPac
         {
             uint64 auramask = GetBotPetAuraUpdateMaskForRaid(pet);
             *data << uint64(auramask);
-            for (uint32 i = 0; i < MAX_AURAS_GROUP_UPDATE; ++i)
+            for (auto i : NPCBots::index_array<uint8, MAX_AURAS_GROUP_UPDATE>)
             {
                 if (auramask & (uint64(1) << i))
                 {
@@ -1726,16 +1692,16 @@ void BotMgr::PropagateEngageTimers() const
     if (!delay_dps && !delay_heal)
         return;
 
-    for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
+    for (auto const& [_, bot] : _bots)
     {
-        if (itr->second->GetBotAI()->IsTank())
+        if (bot->GetBotAI()->IsTank())
             continue;
 
-        bool is_heal = itr->second->GetBotAI()->HasRole(BOT_ROLE_HEAL);
-        bool is_dps= itr->second->GetBotAI()->HasRole(BOT_ROLE_DPS);
+        bool is_heal = bot->GetBotAI()->HasRole(BOT_ROLE_HEAL);
+        bool is_dps= bot->GetBotAI()->HasRole(BOT_ROLE_DPS);
         uint32 delay = (is_heal && is_dps) ? std::max<uint32>(delay_dps, delay_heal) : is_heal ? delay_heal : is_dps ? delay_dps : 0;
 
-        itr->second->GetBotAI()->ResetEngageTimer(delay);
+        bot->GetBotAI()->ResetEngageTimer(delay);
     }
 }
 
@@ -1760,9 +1726,9 @@ int32 BotMgr::GetHPSTaken(Unit const* unit) const
     {
         if (_owner->HasUnitState(UNIT_STATE_CASTING))
             unitList.push_back(_owner);
-        for (BotMap::const_iterator itr = _bots.begin(); itr != _bots.end(); ++itr)
-            if (itr->second->GetTarget() == unit->GetGUID() && itr->second->HasUnitState(UNIT_STATE_CASTING))
-                unitList.push_back(itr->second);
+        for (auto const& [_, bot] : _bots)
+            if (bot->GetTarget() == unit->GetGUID() && bot->HasUnitState(UNIT_STATE_CASTING))
+                unitList.push_back(bot);
     }
     else
     {
@@ -1786,27 +1752,20 @@ int32 BotMgr::GetHPSTaken(Unit const* unit) const
 
                 if (gitr->GetSource()->HaveBot())
                 {
-                    BotMap const* map = gitr->GetSource()->GetBotMgr()->GetBotMap();
-                    for (BotMap::const_iterator itr = map->begin(); itr != map->end(); ++itr)
-                        if (itr->second->GetTarget() == unit->GetGUID() && itr->second->HasUnitState(UNIT_STATE_CASTING))
-                            unitList.push_back(itr->second);
+                    for (auto const& [_, bot] : *gitr->GetSource()->GetBotMgr()->GetBotMap())
+                        if (bot->GetTarget() == unit->GetGUID() && bot->HasUnitState(UNIT_STATE_CASTING))
+                            unitList.push_back(bot);
                 }
             }
         }
     }
 
     int32 amount = 0;
-
-    Unit* u;
-    Spell const* spell;
-    SpellInfo const* spellInfo;
-    for (std::list<Unit*>::const_iterator itr = unitList.begin(); itr != unitList.end(); ++itr)
+    for (Unit* u : unitList)
     {
-        u = *itr;
-
         for (uint8 i = CURRENT_FIRST_NON_MELEE_SPELL; i != CURRENT_AUTOREPEAT_SPELL; ++i)
         {
-            spell = u->GetCurrentSpell(CurrentSpellTypes(i));
+            Spell const* spell = u->GetCurrentSpell(CurrentSpellTypes(i));
             if (!spell)
                 continue;
 
@@ -1820,9 +1779,9 @@ int32 BotMgr::GetHPSTaken(Unit const* unit) const
                     continue;
             }
 
-            spellInfo = spell->GetSpellInfo();
+            SpellInfo const* spellInfo = spell->GetSpellInfo();
 
-            for (uint8 j = 0; j != MAX_SPELL_EFFECTS; ++j)
+            for (auto j : NPCBots::index_array<uint8, MAX_SPELL_EFFECTS>)
             {
                 if (spellInfo->Effects[j].Effect != SPELL_EFFECT_HEAL)
                     continue;
@@ -1860,9 +1819,8 @@ int32 BotMgr::GetHPSTaken(Unit const* unit) const
     }
 
     //HoTs
-    Unit::AuraEffectList const& hots = unit->GetAuraEffectsByType(SPELL_AURA_PERIODIC_HEAL);
-    for (Unit::AuraEffectList::const_iterator itr = hots.begin(); itr != hots.end(); ++itr)
-        amount += int32((*itr)->GetAmount() / ((*itr)->GetAmplitude() * 0.001f));
+    for (AuraEffect const* aeff : unit->GetAuraEffectsByType(SPELL_AURA_PERIODIC_HEAL))
+        amount += int32(aeff->GetAmount() / (aeff->GetAmplitude() * 0.001f));
 
     //if (amount != 0)
     //    BOT_LOG_ERROR("entities.player", "BotMgr:GetHPSTaken(): %s got %i)", unit->GetName().c_str(), amount);
@@ -1910,18 +1868,14 @@ void BotMgr::OnBotSpellGo(Unit const* caster, Spell const* spell, bool ok)
 
 void BotMgr::OnBotOwnerSpellGo(Unit const* caster, Spell const* spell, bool ok)
 {
-    BotMap const* bmap = caster->ToPlayer()->GetBotMgr()->GetBotMap();
-    for (BotMap::const_iterator itr = bmap->begin(); itr != bmap->end(); ++itr)
+    for (auto const& [_, bot] : *caster->ToPlayer()->GetBotMgr()->GetBotMap())
     {
-        if (Creature const* bot = itr->second)
-        {
-            if (!bot->IsInWorld() || !bot->IsAlive())
-                continue;
+        if (!bot || !bot->IsInWorld() || !bot->IsAlive())
+            continue;
 
-            bot->GetBotAI()->OnBotOwnerSpellGo(spell, ok);
-            //if (Creature const* botpet = bot->GetBotsPet())
-            //    botpet->GetBotAI()->OnBotPetOwnerSpellGo(spell, ok);
-        }
+        bot->GetBotAI()->OnBotOwnerSpellGo(spell, ok);
+        //if (Creature const* botpet = bot->GetBotsPet())
+        //    botpet->GetBotAI()->OnBotPetOwnerSpellGo(spell, ok);
     }
 }
 
@@ -1940,10 +1894,9 @@ void BotMgr::OnVehicleSpellGo(Unit const* caster, Spell const* spell, bool ok)
         Unit const* owner = caster->GetCharmer();
         if (owner && owner->ToPlayer()->HaveBot())
         {
-            BotMap const* bmap = owner->ToPlayer()->GetBotMgr()->GetBotMap();
-            for (BotMap::const_iterator itr = bmap->begin(); itr != bmap->end(); ++itr)
+            for (auto const& [_, bot] : *owner->ToPlayer()->GetBotMgr()->GetBotMap())
             {
-                if (Creature const* bot = itr->second)
+                if (bot)
                 {
                     bot->GetBotAI()->OnBotOwnerSpellGo(spell, ok);
                     //if (Creature const* botpet = bot->GetBotsPet())
@@ -1969,11 +1922,10 @@ void BotMgr::OnVehicleAttackedBy(Unit* attacker, Unit const* victim)
         if (Unit const* bot = victim->GetCharmer())
             owner = bot->ToCreature()->GetBotOwner();
 
-    if (owner && owner->GetTypeId() == TYPEID_PLAYER && owner->ToPlayer()->HaveBot())
+    if (owner && owner->IsPlayer() && owner->ToPlayer()->HaveBot())
     {
-        BotMap const* bmap = owner->ToPlayer()->GetBotMgr()->GetBotMap();
-        for (BotMap::const_iterator itr = bmap->begin(); itr != bmap->end(); ++itr)
-            if (Creature const* bot = itr->second)
+        for (auto const& [_, bot] : *owner->ToPlayer()->GetBotMgr()->GetBotMap())
+            if (bot)
                 bot->GetBotAI()->OnOwnerVehicleDamagedBy(attacker);
     }
 }
@@ -2005,20 +1957,16 @@ void BotMgr::OnBotExitVehicle(Creature const* passenger, Vehicle const* vehicle)
 
 void BotMgr::OnBotOwnerEnterVehicle(Player const* passenger, Vehicle const* vehicle)
 {
-    BotMap const* bmap = passenger->GetBotMgr()->GetBotMap();
-    for (BotMap::const_iterator itr = bmap->begin(); itr != bmap->end(); ++itr)
-        if (Creature const* bot = itr->second)
-            if (bot->IsInWorld() && bot->IsAlive())
-                bot->GetBotAI()->OnBotOwnerEnterVehicle(vehicle);
+    for (auto const& [_, bot] : *passenger->GetBotMgr()->GetBotMap())
+        if (bot && bot->IsInWorld() && bot->IsAlive())
+            bot->GetBotAI()->OnBotOwnerEnterVehicle(vehicle);
 }
 
 void BotMgr::OnBotOwnerExitVehicle(Player const* passenger, Vehicle const* vehicle)
 {
-    BotMap const* bmap = passenger->GetBotMgr()->GetBotMap();
-    for (BotMap::const_iterator itr = bmap->begin(); itr != bmap->end(); ++itr)
-        if (Creature const* bot = itr->second)
-            if (bot->IsInWorld() && bot->IsAlive())
-                bot->GetBotAI()->OnBotOwnerExitVehicle(vehicle);
+    for (auto const& [_, bot] : *passenger->GetBotMgr()->GetBotMap())
+        if (bot && bot->IsInWorld() && bot->IsAlive())
+            bot->GetBotAI()->OnBotOwnerExitVehicle(vehicle);
 }
 
 void BotMgr::OnBotPartyEngage(Player const* owner)

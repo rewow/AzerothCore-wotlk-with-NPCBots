@@ -1,4 +1,5 @@
 #include "bot_ai.h"
+#include "botlogtraits.h"
 #include "botmgr.h"
 #include "bottext.h"
 #include "bottraits.h"
@@ -248,12 +249,12 @@ public:
             //Freezing Fog
             if (rimeProcTimer > GetLastDiff() && spellInfo->Id == HOWLING_BLAST_1)
             {
-                for (uint8 i = 0; i != RUNE_DEATH; ++i)
+                for (auto i : NPCBots::index_array<uint8, RUNE_DEATH>)
                     runeCost[i] = 0;
             }
             else
             {
-                for (uint8 i = 0; i != RUNE_DEATH; ++i)
+                for (auto i : NPCBots::index_array<uint8, RUNE_DEATH>)
                     runeCost[i] = src->RuneCost[i];
             }
 
@@ -264,7 +265,7 @@ public:
             //str << "Casted " << spellInfo->SpellName[0] << " cost"
             //    << " " << runeCost[0] << " " << runeCost[1] << " " << runeCost[2] << " " << runeCost[3];
 
-            for (uint8 i = 0; i != MAX_RUNES; ++i)
+                for (auto i : NPCBots::index_array<uint8, MAX_RUNES>)
             {
                 uint8 rune = _runes[i].CurrentRune;
                 if (runeCost[rune] > 0 && _runes[i].Cooldown <= 0)
@@ -389,10 +390,8 @@ public:
                         if (!player->HaveBot())
                             continue;
 
-                        BotMap const* map = player->GetBotMgr()->GetBotMap();
-                        for (BotMap::const_iterator it = map->begin(); it != map->end(); ++it)
+                        for (auto const& [_, bot] : *player->GetBotMgr()->GetBotMap())
                         {
-                            Creature* bot = it->second;
                             if (IsMeleeClass(bot->GetBotClass()) && bot->GetVictim() &&
                                 bot->GetBotAI()->HasRole(BOT_ROLE_DPS) && !bot->GetBotAI()->HasRole(BOT_ROLE_RANGED) &&
                                 GetHealthPCT(bot) > 60 && me->GetDistance(bot) < 30 && !CCed(bot, true) &&
@@ -416,7 +415,7 @@ public:
 
             if (target && doCast(target, GetSpell(HYSTERIA_1)))
             {
-                if (target->GetTypeId() == TYPEID_PLAYER)
+                if (target->IsPlayer())
                     ReportSpellCast(HYSTERIA_1, LocalizedNpcText(target->ToPlayer(), BOT_TEXT__ON_YOU), target->ToPlayer());
                 //if (target != master)
                 //{
@@ -499,7 +498,7 @@ public:
         void BreakCC(uint32 diff) override
         {
             if (IsSpellReady(LICHBORNE_1, diff, false) && Rand() < 45 &&
-                me->HasAuraWithMechanic((1<<MECHANIC_CHARM)|(1<<MECHANIC_FEAR)|(1<<MECHANIC_SLEEP)))
+                me->HasAuraWithMechanic((1u<<MECHANIC_CHARM)|(1u<<MECHANIC_FEAR)|(1u<<MECHANIC_SLEEP)))
             {
                 if (doCast(me, GetSpell(LICHBORNE_1)))
                     return;
@@ -703,7 +702,7 @@ public:
             if (IsSpellReady(MARK_OF_BLOOD_1, diff) && u && Rand() < 55 && dist < 30 && HaveRunes(MARK_OF_BLOOD_1) &&
                 IsInBotParty(u) && GetHealthPCT(u) < 75 && u->GetDistance(mytar) < 10 &&
                 mytar->GetHealth() > me->GetMaxHealth() / 4 * (1 + mytar->getAttackers().size()) &&
-                (u == me || IsTank(u) || u->GetTypeId() == TYPEID_PLAYER) &&
+                (u == me || IsTank(u) || u->IsPlayer()) &&
                 !mytar->GetDummyAuraEffect(SPELLFAMILY_DEATHKNIGHT, 2285, 0))
             {
                 if (doCast(mytar, GetSpell(MARK_OF_BLOOD_1)))
@@ -718,7 +717,7 @@ public:
 
             //DARK COMMAND
             if (IsSpellReady(DARK_COMMAND_1, diff, false) && u && u != me && dist < 30 &&
-                mytar->GetTypeId() == TYPEID_UNIT && !mytar->IsControlledByPlayer() && Rand() < 50 &&
+                mytar->IsCreature() && !mytar->IsControlledByPlayer() && Rand() < 50 &&
                 !CCed(mytar) && !mytar->HasAuraType(SPELL_AURA_MOD_TAUNT) &&
                 (!IsTank(u) || (IsTank() && GetHealthPCT(me) > 67 &&
                 (GetHealthPCT(u) < 30 || (IsOffTank() && !IsOffTank(u) && IsPointedOffTankingTarget(mytar)) ||
@@ -732,7 +731,7 @@ public:
             //DARK COMMAND 2 (distant)
             if (IsSpellReady(DARK_COMMAND_1, diff, false) && !IAmFree() && u == me && Rand() < 30 && IsTank() &&
                 (IsOffTank() || master->GetBotMgr()->GetNpcBotsCountByRole(BOT_ROLE_TANK_OFF) == 0) &&
-                !(me->GetLevel() >= 40 && mytar->GetTypeId() == TYPEID_UNIT &&
+                !(me->GetLevel() >= 40 && mytar->IsCreature() &&
                 (mytar->ToCreature()->IsDungeonBoss() || mytar->ToCreature()->isWorldBoss())))
             {
                 if (Unit* tUnit = FindDistantTauntTarget())
@@ -770,9 +769,9 @@ public:
 
             //CHAINS OF ICE
             if (IsSpellReady(CHAINS_OF_ICE_1, diff) && Rand() < 65 && dist < CalcSpellMaxRange(CHAINS_OF_ICE_1) && mytar->isMoving() &&
-                !(mytar->GetTypeId() == TYPEID_UNIT && (mytar->ToCreature()->HasMechanicTemplateImmunity(1ull<<(MECHANIC_SNARE-1)))) &&
+                !(mytar->IsCreature() && (mytar->ToCreature()->HasMechanicTemplateImmunity(1u<<(MECHANIC_SNARE-1)))) &&
                 HaveRunes(CHAINS_OF_ICE_1) && !CCed(mytar, true) && (!u || (!IsTank(u) && IsInBotParty(u))) &&
-                !mytar->HasAuraWithMechanic(1<<MECHANIC_SNARE))
+                !mytar->HasAuraWithMechanic(1u<<MECHANIC_SNARE))
             {
                 if (doCast(mytar, GetSpell(CHAINS_OF_ICE_1)))
                     return;
@@ -791,7 +790,7 @@ public:
             }
 
             //Diseases in general
-            bool noDiseases = mytar->GetTypeId() == TYPEID_UNIT && (mytar->ToCreature()->HasMechanicTemplateImmunity(1ull<<(MECHANIC_INFECTED-1)));
+            bool noDiseases = mytar->IsCreature() && (mytar->ToCreature()->HasMechanicTemplateImmunity(1u<<(MECHANIC_INFECTED-1)));
             AuraEffect const* blop = noDiseases ? nullptr : mytar->GetAuraEffect(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_DEATHKNIGHT, 0x0, 0x2000000, 0x0, me->GetGUID());
             AuraEffect const* frof = noDiseases ? nullptr : mytar->GetAuraEffect(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_DEATHKNIGHT, 0x0, 0x4000000, 0x0, me->GetGUID());
             AuraEffect const* ebop = (noDiseases || GetSpec() != BOT_SPEC_DK_UNHOLY) ? nullptr : mytar->GetAuraEffect(SPELL_AURA_LINKED, SPELLFAMILY_DEATHKNIGHT, 0x0, 0x800, 0x0, me->GetGUID());
@@ -814,11 +813,11 @@ public:
                     std::list<Unit*> targets;
                     GetNearbyTargetsList(targets, 13.f, 0, mytar);
                     uint8 count = 0;
-                    for (std::list<Unit*>::const_iterator itr = targets.begin(); itr != targets.end(); ++itr)
+                    for (Unit const* u : targets)
                     {
                         //check existing blop and frof
-                        if (!(*itr)->GetAuraEffect(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_DEATHKNIGHT, 0x0, 0x2000000, 0x0, me->GetGUID()) ||
-                            !(*itr)->GetAuraEffect(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_DEATHKNIGHT, 0x0, 0x4000000, 0x0, me->GetGUID()))
+                        if (!u->GetAuraEffect(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_DEATHKNIGHT, 0x0, 0x2000000, 0x0, me->GetGUID()) ||
+                            !u->GetAuraEffect(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_DEATHKNIGHT, 0x0, 0x4000000, 0x0, me->GetGUID()))
                             if (++count > 1)
                                 break;
                     }
@@ -1102,7 +1101,7 @@ public:
                 pctbonus += 0.1f;
 
             //Glyph of Blood Strike: 20% bonus damage for Blood Strike on snared targets
-            if (baseId == BLOOD_STRIKE_1 && damageinfo.target->HasAuraWithMechanic(1<<MECHANIC_SNARE))
+            if (baseId == BLOOD_STRIKE_1 && damageinfo.target->HasAuraWithMechanic(1u<<MECHANIC_SNARE))
                 pctbonus += 0.2f;
             //Glyph of Death Strike: 1% bonus damage for every runic power point (max 25) for Death Strike
             if (baseId == DEATH_STRIKE_1 && runicpower >= 10)
@@ -1994,19 +1993,19 @@ public:
             if (rimeProcTimer > GetLastDiff() && spellInfo->Id == HOWLING_BLAST_1)
                 return true;
 
-            for (uint8 i = 0; i != RUNE_DEATH; ++i)
+            for (auto i : NPCBots::index_array<uint8, RUNE_DEATH>)
                 runeCost[i] = src->RuneCost[i];
 
             runeCost[RUNE_DEATH] = MAX_RUNES;
 
-            for (uint8 i = 0; i != MAX_RUNES; ++i)
+            for (auto i : NPCBots::index_array<uint8, MAX_RUNES>)
             {
                 uint8 rune = _runes[i].CurrentRune;
                 if (runeCost[rune] > 0 && _runes[i].Cooldown <= 0)
                     runeCost[rune]--;
             }
 
-            for (uint8 i = 0; i != RUNE_DEATH; ++i)
+            for (auto i : NPCBots::index_array<uint8, RUNE_DEATH>)
                 if (runeCost[i] > 0)
                     runeCost[RUNE_DEATH] += runeCost[i];
 
@@ -2018,7 +2017,7 @@ public:
 
         bool SpendRune(uint8 runetype, bool didHit)
         {
-            for (uint8 i = 0; i != MAX_RUNES; ++i)
+            for (auto i : NPCBots::index_array<uint8, MAX_RUNES>)
             {
                 if (_runes[i].CurrentRune == runetype && _runes[i].Cooldown <= 0)
                 {
@@ -2040,7 +2039,7 @@ public:
         uint8 GetCooledRunesCount(uint8 runetype) const
         {
             uint8 count = 0;
-            for (uint8 i = 0; i != MAX_RUNES; ++i)
+            for (auto i : NPCBots::index_array<uint8, MAX_RUNES>)
                 if (_runes[i].BaseRune == runetype && _runes[i].Cooldown > 0)
                     ++count;
 
@@ -2050,7 +2049,7 @@ public:
         uint8 GetCooledRunesCount() const
         {
             uint8 count = 0;
-            for (uint8 i = 0; i != MAX_RUNES; ++i)
+            for (auto i : NPCBots::index_array<uint8, MAX_RUNES>)
                 if (_runes[i].Cooldown > 0)
                     ++count;
 
@@ -2060,7 +2059,7 @@ public:
         uint32 GetTotalRunesCooldown() const
         {
             uint32 totalCd = 0;
-            for (uint8 i = 0; i != MAX_RUNES; ++i)
+            for (auto i : NPCBots::index_array<uint8, MAX_RUNES>)
                 totalCd += std::max<int32>(_runes[i].Cooldown, 0);
 
             return totalCd;
@@ -2068,7 +2067,7 @@ public:
 
         void ConvertRune(uint8 runetype)
         {
-            for (uint8 i = 0; i != MAX_RUNES; ++i)
+            for (auto i : NPCBots::index_array<uint8, MAX_RUNES>)
             {
                 if (_runes[i].CurrentRune == runetype)
                 {
@@ -2080,13 +2079,13 @@ public:
 
         void ActivateAllRunes()
         {
-            for (uint8 i = 0; i != MAX_RUNES; ++i)
+            for (auto i : NPCBots::index_array<uint8, MAX_RUNES>)
                 _runes[i].Cooldown = std::min<int32>(_runes[i].Cooldown, me->IsInCombat() ? -1 : 0);
         }
 
         void InitRunes()
         {
-            for (uint8 i = 0; i != MAX_RUNES; ++i)
+            for (auto i : NPCBots::index_array<uint8, MAX_RUNES>)
             {
                 _runes[i].BaseRune = runeSlotTypes[i];
                 _runes[i].CurrentRune = _runes[i].BaseRune;
@@ -2096,7 +2095,7 @@ public:
 
         void RuneTimers(uint32 diff)
         {
-            for (uint8 i = 0; i != MAX_RUNES; ++i)
+            for (auto i : NPCBots::index_array<uint8, MAX_RUNES>)
             {
                 int32 &cd = _runes[i].Cooldown;
                 if (me->IsInCombat())
@@ -2134,11 +2133,10 @@ public:
 
             for (AuraType const* itr = botDiseaseAuraTypes; *itr != SPELL_AURA_NONE; ++itr)
             {
-                Unit::AuraEffectList const& disAuras = unit->GetAuraEffectsByType(*itr);
-                for (Unit::AuraEffectList::const_iterator ditr = disAuras.begin(); ditr != disAuras.end(); ++ditr)
+                for (AuraEffect const* aeff : unit->GetAuraEffectsByType(*itr))
                 {
                     // Get auras with disease dispel type by caster
-                    if ((*ditr)->GetSpellInfo()->Dispel == DISPEL_DISEASE)
+                    if (aeff->GetSpellInfo()->Dispel == DISPEL_DISEASE)
                         return true;
                 }
             }
