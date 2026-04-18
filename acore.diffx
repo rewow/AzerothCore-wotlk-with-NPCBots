@@ -1,3 +1,13 @@
+diff --git a/.gitignore b/.gitignore
+index 576721a2f..9c6ba9853 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -115,3 +115,5 @@ local.properties
+ #NPCBots
+ !/data/sql/custom/db_characters/
+ !/data/sql/custom/db_world/
++
++.cache/
 diff --git a/data/sql/custom/db_world/2023_06_09_00_creature_template_npcbot_wander_nodes.sql b/data/sql/custom/db_world/2023_06_09_00_creature_template_npcbot_wander_nodes.sql
 index 725842fa3..6b3d10793 100644
 --- a/data/sql/custom/db_world/2023_06_09_00_creature_template_npcbot_wander_nodes.sql
@@ -6445,10 +6455,10 @@ index 48c9c4a62..0916351cf 100644
  #else
      if (mysql_stmt_bind_param(msql_STMT, msql_BIND))
 diff --git a/src/server/database/Updater/DBUpdater.cpp b/src/server/database/Updater/DBUpdater.cpp
-index 4e06beb48..d44d94327 100644
+index 2d023faed..275fcfd1c 100644
 --- a/src/server/database/Updater/DBUpdater.cpp
 +++ b/src/server/database/Updater/DBUpdater.cpp
-@@ -501,8 +501,13 @@ void DBUpdater<T>::ApplyFile(DatabaseWorkerPool<T>& pool, std::string const& hos
+@@ -504,8 +504,13 @@ void DBUpdater<T>::ApplyFile(DatabaseWorkerPool<T>& pool, std::string const& hos
      // Set max allowed packet to 1 GB
      args.emplace_back("--max-allowed-packet=1GB");
  
@@ -6463,10 +6473,10 @@ index 4e06beb48..d44d94327 100644
      // Database
      if (!database.empty())
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
-index 9949cee32..7194bbbcf 100644
+index c7584f40c..6e2bea4f2 100644
 --- a/src/server/game/AI/NpcBots/bot_ai.cpp
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -446,6 +446,9 @@ void bot_ai::ResetBotAI(uint8 resetType)
+@@ -451,6 +451,9 @@ void bot_ai::ResetBotAI(uint8 resetType)
      _botCommandState = 0;
      _botAwaitState = BOT_AWAIT_NONE;
      _reviveTimer = 0;
@@ -6476,7 +6486,7 @@ index 9949cee32..7194bbbcf 100644
  
      if (resetType & BOTAI_RESET_MASK_RESET_MASTER)
          master = reinterpret_cast<Player*>(me);
-@@ -2157,7 +2160,8 @@ void bot_ai::SetStats(bool force)
+@@ -2133,7 +2136,8 @@ void bot_ai::SetStats(bool force)
              if (me->GetMap()->IsBattlegroundOrArena())
                  BOT_LOG_DEBUG("npcbots", "BG bot {} id {} selected level {}...", me->GetName().c_str(), me->GetEntry(), uint32(_baseLevel));
              else
@@ -6486,7 +6496,7 @@ index 9949cee32..7194bbbcf 100644
          }
          else if (me->GetMap()->GetEntry()->IsContinent())
          {
-@@ -2165,6 +2169,9 @@ void bot_ai::SetStats(bool force)
+@@ -2141,6 +2145,9 @@ void bot_ai::SetStats(bool force)
              mapmaxlevel += BotDataMgr::GetLevelBonusForBotRank(me->GetCreatureTemplate()->rank);
              //TODO: experience system for levelups
              mylevel = std::max<uint8>(mylevel, std::min<uint8>(_baseLevel + uint8(uint32(float(_killsCount) * BotCfg::GetBotWandererXPGainMod()) / (mylevel * 20)), mapmaxlevel));
@@ -6496,7 +6506,7 @@ index 9949cee32..7194bbbcf 100644
          }
      }
      else
-@@ -2183,6 +2190,26 @@ void bot_ai::SetStats(bool force)
+@@ -2159,6 +2166,26 @@ void bot_ai::SetStats(bool force)
  
          me->SetLevel(mylevel);
          force = true; //reinit spells/passives/other
@@ -6523,7 +6533,7 @@ index 9949cee32..7194bbbcf 100644
      }
      if (force)
      {
-@@ -3642,6 +3669,10 @@ bool bot_ai::CanBotAttack(Unit const* target, int8 byspell, bool secondary) cons
+@@ -3618,6 +3645,10 @@ bool bot_ai::CanBotAttack(Unit const* target, int8 byspell, bool secondary) cons
              case 4952: case 17578: case 24792: case 30527: case 31143: case 31144: case 31146: // training dummy
              case 32541: case 32542: case 32543: case 32545: case 32546: case 32547: case 32666: case 32667: // training dummy
              case 7668: case 7669: case 7670: case 7671: // Blasted Lands servants
@@ -6534,7 +6544,7 @@ index 9949cee32..7194bbbcf 100644
                  return false;
              case 21416: case 21709: case 21710: case 21711: // Shadowmoon Valley Broken element corruptors
                  if (target->HasAuraTypeWithMiscvalue(SPELL_AURA_SCHOOL_IMMUNITY, 127))
-@@ -5822,7 +5853,8 @@ uint32 bot_ai::_selectMountSpell() const
+@@ -5798,7 +5829,8 @@ uint32 bot_ai::_selectMountSpell() const
      {
          using MountArray = std::array<uint32, NUM_MOUNTS_PER_SPEED>;
  
@@ -6544,9 +6554,9 @@ index 9949cee32..7194bbbcf 100644
          bool useSlowMount = can_fly ? (me->GetLevel() < 70 || maxMountSpeed < 220) : (me->GetLevel() < minLevel100 || maxMountSpeed < 80);
  
          if (!can_fly)
-@@ -16148,20 +16180,28 @@ void bot_ai::JustDied(Unit* u)
-                 gr->SendUpdate();
-     }
+@@ -15875,20 +15907,28 @@ void bot_ai::JustDied(Unit* u)
+     else if (Group* gr = GetGroup())
+         gr->SendUpdate();
  
 +    // Ornfelt: don't tele to graveyard if arena
 +    //if (IsWanderer() && me->GetMap()->IsBattleground()) // Not needed
@@ -6575,7 +6585,7 @@ index 9949cee32..7194bbbcf 100644
              IsWanderer() ? "Wandering bot" : "Bot", me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
              (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
              u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-@@ -16214,7 +16254,8 @@ void bot_ai::KilledUnit(Unit* u)
+@@ -15941,7 +15981,8 @@ void bot_ai::KilledUnit(Unit* u)
          {
              if (IsWanderer())
              {
@@ -6585,7 +6595,7 @@ index 9949cee32..7194bbbcf 100644
                      me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
                      (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
                      u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-@@ -16222,7 +16263,8 @@ void bot_ai::KilledUnit(Unit* u)
+@@ -15949,7 +15990,8 @@ void bot_ai::KilledUnit(Unit* u)
              }
              else if (u->IsNPCBot() && u->ToCreature()->GetBotAI()->IsWanderer())
              {
@@ -6595,7 +6605,7 @@ index 9949cee32..7194bbbcf 100644
                      me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
                      u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
                      IsWanderer() ? _travel_node_cur->GetName().c_str() : "''");
-@@ -16231,7 +16273,9 @@ void bot_ai::KilledUnit(Unit* u)
+@@ -15958,7 +16000,9 @@ void bot_ai::KilledUnit(Unit* u)
      }
  
      //handle BG kill BvP, BvB, BvC
@@ -6606,7 +6616,7 @@ index 9949cee32..7194bbbcf 100644
      {
          Battleground* bg = GetBG();
          //could be removed from BG
-@@ -18558,6 +18602,26 @@ void bot_ai::CommonTimers(uint32 diff)
+@@ -18429,6 +18473,26 @@ void bot_ai::CommonTimers(uint32 diff)
              _rentTimer += diff;
      }
  
@@ -6633,7 +6643,7 @@ index 9949cee32..7194bbbcf 100644
      if (me->IsInWorld())
      {
          if (_wmoAreaUpdateTimer > diff) _wmoAreaUpdateTimer -= diff;
-@@ -18592,7 +18656,9 @@ void bot_ai::CommonTimers(uint32 diff)
+@@ -18463,7 +18527,9 @@ void bot_ai::CommonTimers(uint32 diff)
  
  void bot_ai::UpdateReviveTimer(uint32 diff)
  {
@@ -6644,7 +6654,7 @@ index 9949cee32..7194bbbcf 100644
          return;
  
      if (_reviveTimer > diff)        _reviveTimer -= diff;
-@@ -18680,12 +18746,34 @@ void bot_ai::Evade()
+@@ -18551,12 +18617,34 @@ void bot_ai::Evade()
  
      if (IsWanderer())
      {
@@ -6683,7 +6693,7 @@ index 9949cee32..7194bbbcf 100644
  
              evadeDelayTimer = 12000;
              me->CastSpell(me, WANDERER_HEARTHSTONE);
-@@ -18765,6 +18853,22 @@ void bot_ai::Evade()
+@@ -18636,6 +18724,22 @@ void bot_ai::Evade()
                  OnWanderNodeReached();
  
                  WanderNode const* nextNode = GetNextTravelNode(&pos, false);
@@ -6706,7 +6716,7 @@ index 9949cee32..7194bbbcf 100644
                  if (!nextNode)
                  {
                      BOT_LOG_FATAL("npcbots", "Bot {} ({}) is unable to get next travel node! cur {}, last {}, position: {}. BOT WAS DISABLED",
-@@ -20449,6 +20553,16 @@ void bot_ai::OnBotEnterBattleground()
+@@ -20320,6 +20424,16 @@ void bot_ai::OnBotEnterBattleground()
              }
          });
  
@@ -6724,10 +6734,10 @@ index 9949cee32..7194bbbcf 100644
          if (startNode)
          {
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
-index 3bc6ad22a..62916cfbf 100644
+index ea1969ad9..78e6e93f6 100644
 --- a/src/server/game/AI/NpcBots/bot_ai.h
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -731,6 +731,10 @@ private:
+@@ -721,6 +721,10 @@ private:
      uint32 _saveDisabledSpellsTimer{};
      uint32 _saveMiscValuesTimer{};
  
@@ -6739,10 +6749,10 @@ index 3bc6ad22a..62916cfbf 100644
      uint32 _selfrez_spell_id{};
  
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-index 60acbb94a..c713587c2 100644
+index 73861b5a5..912b90030 100644
 --- a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-@@ -928,7 +928,9 @@ public:
+@@ -929,7 +929,9 @@ public:
              }
              else if (HasRole(BOT_ROLE_DPS))
              {
@@ -6754,10 +6764,10 @@ index 60acbb94a..c713587c2 100644
              else if (HasRole(BOT_ROLE_HEAL))
                  SEAL = WISDOM ? WISDOM : LIGHT ? LIGHT : RIGHT;
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
-index 542987bef..e84ab02c7 100644
+index a0400653b..e419d428e 100644
 --- a/src/server/game/AI/NpcBots/botdatamgr.cpp
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -150,6 +150,18 @@ public:
+@@ -153,6 +153,18 @@ public:
              GroupQueueInfo const* my_gqi = qpm_citr != queue.m_QueuedPlayers.cend() ? qpm_citr->second : nullptr;
              Battleground* bg = my_gqi ? sBattlegroundMgr->GetBattleground(my_gqi->IsInvitedToBGInstanceGUID, _bgTypeId) : nullptr;
  
@@ -6776,7 +6786,7 @@ index 542987bef..e84ab02c7 100644
              if (!bg || bg->GetPlayersCountByTeam(TEAM_ALLIANCE) + bg->GetPlayersCountByTeam(TEAM_HORDE) >= bg->GetMaxPlayersPerTeam() * 2)
              {
                  AbortAll();
-@@ -201,9 +213,25 @@ static void SpawnWandererBot(uint32 bot_id, WanderNode const* spawnLoc, NpcBotRe
+@@ -204,9 +216,25 @@ static void SpawnWandererBot(uint32 bot_id, WanderNode const* spawnLoc, NpcBotRe
      Map* map = sMapMgr->CreateBaseMap(spawnLoc->GetMapId());
      map->LoadGrid(spawnLoc->m_positionX, spawnLoc->m_positionY);
  
@@ -6805,17 +6815,16 @@ index 542987bef..e84ab02c7 100644
  
      Creature* bot = new Creature();
      if (!bot->LoadBotCreatureFromDB(0, map, true, true, bot_id, &spawnPos))
-@@ -331,6 +359,9 @@ private:
+@@ -411,6 +439,8 @@ private:
          ASSERT(!level_nodes.empty());
          WanderNode const* spawnLoc = Bcore::Containers::SelectRandomContainerElement(level_nodes);
  
 +        // Ornfelt: Change wander bot spawnloc
 +        //WanderNode const* spawnLoc = level_nodes.at(0);
-+
-         CreatureTemplate& bot_template = _botsWanderCreatureTemplates[next_bot_id];
+         CreatureTemplate& bot_template = _botsExtraCreatureTemplates[next_bot_id];
          //copy all fields
          bot_template = *orig_template;
-@@ -1725,7 +1756,9 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
+@@ -1970,7 +2000,9 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
  
      uint32 tarteamplayers = BotCfg::GetBGTargetTeamPlayersCount(bgTypeId);
  
@@ -6826,7 +6835,7 @@ index 542987bef..e84ab02c7 100644
      {
          BOT_LOG_INFO("npcbots", "[Disabled] BG {} wandering bots generation is disabled (not implemented?)", uint32(bgTypeId));
          return true;
-@@ -1791,6 +1824,14 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
+@@ -2036,6 +2068,14 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
      uint32 needed_bots_count_a = (queued_players_a < tarteamplayers) ? (tarteamplayers - queued_players_a) : 0;
      uint32 needed_bots_count_h = (queued_players_h < tarteamplayers) ? (tarteamplayers - queued_players_h) : 0;
  
@@ -6841,7 +6850,7 @@ index 542987bef..e84ab02c7 100644
      ASSERT(needed_bots_count_a <= maxteamplayers);
      ASSERT(needed_bots_count_h <= maxteamplayers);
  
-@@ -1825,6 +1866,12 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
+@@ -2070,6 +2110,12 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
      std::array<NpcBotRegistry, 2> spawned_bots;
      auto& [spawned_bots_a, spawned_bots_h] = spawned_bots;
  
@@ -6854,7 +6863,7 @@ index 542987bef..e84ab02c7 100644
      if (needed_bots_count_a)
      {
          if (!sBotGen->GenerateWanderingBotsToSpawn(needed_bots_count_a, bg_template->GetMapId(), ALLIANCE, true, bracketEntry, &spawned_bots_a, spawned_a))
-@@ -1837,6 +1884,8 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
+@@ -2082,6 +2128,8 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
                      DespawnWandererBot(bot->GetEntry());
              return false;
          }
@@ -6863,7 +6872,7 @@ index 542987bef..e84ab02c7 100644
      }
      if (needed_bots_count_h)
      {
-@@ -1850,10 +1899,13 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
+@@ -2095,10 +2143,13 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
                      DespawnWandererBot(bot->GetEntry());
              return false;
          }
@@ -6879,7 +6888,7 @@ index 542987bef..e84ab02c7 100644
  
      botBGJoinEvents[groupLeader->GetGUID()].AddEventAtOffset([ammr = ammr, atype = atype, bgqTypeId = bgqTypeId, bgTypeId = bgTypeId, bracketId = bracketId]() {
          sBattlegroundMgr->ScheduleQueueUpdate(ammr, atype, bgqTypeId, bgTypeId, bracketId);
-@@ -1874,7 +1926,12 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
+@@ -2119,7 +2170,12 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
              queue->AddBotAsGroup(bot->GetGUID(), GetTeamIdForFaction(bot->GetFaction()),
                  bgTypeId, bracketEntry, atype, false, gqinfo->ArenaTeamRating, ammr);
  
@@ -6894,10 +6903,10 @@ index 542987bef..e84ab02c7 100644
              BotBattlegroundEnterEvent* bbe = new BotBattlegroundEnterEvent(groupLeader->GetGUID(), bot->GetGUID(), bgqTypeId, bgTypeId,
                  botBGJoinEvents[groupLeader->GetGUID()].CalculateTime(Milliseconds(uint32(INVITE_ACCEPT_WAIT_TIME) + uint32(BG_START_DELAY_2M)).count()));
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
-index 581ef1429..5191a0743 100644
+index df7f01d26..19132fdfe 100644
 --- a/src/server/game/AI/NpcBots/botmgr.cpp
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -630,7 +630,9 @@ void BotMgr::_teleportBot(Creature* bot, Map* newMap, float x, float y, float z,
+@@ -635,7 +635,9 @@ void BotMgr::_teleportBot(Creature* bot, Map* newMap, float x, float y, float z,
              botai->SetIsDuringTeleport(false);
              botai->ResetContestedPvP();
  
@@ -7110,7 +7119,7 @@ index 24fa51279..708c829b9 100644
  //end npcbot
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index a7d30c2ca..7721be190 100644
+index 2ec897fba..78567ab39 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
 @@ -1100,6 +1100,11 @@ void Player::setDeathState(DeathState s, bool /*despawn = false*/)
@@ -7125,7 +7134,7 @@ index a7d30c2ca..7721be190 100644
  }
  
  void Player::SetRestState(uint32 triggerId)
-@@ -10706,14 +10711,29 @@ void Player::InitDisplayIds()
+@@ -10723,14 +10728,29 @@ void Player::InitDisplayIds()
          case GENDER_FEMALE:
              SetDisplayId(info->displayId_f);
              SetNativeDisplayId(info->displayId_f);
@@ -7156,10 +7165,10 @@ index a7d30c2ca..7721be190 100644
  }
  
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index fef8c9caf..7d63ae592 100644
+index 1cd4ae31a..88e8688a8 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
-@@ -1750,6 +1750,23 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
+@@ -1775,6 +1775,23 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
              break;
      }
  
@@ -7183,7 +7192,7 @@ index fef8c9caf..7d63ae592 100644
      damageInfo->cleanDamage = std::max(0, cleanDamage);
      damageInfo->damage = std::max(0, damage);
  
-@@ -4819,7 +4836,12 @@ bool Unit::IsUnderWater() const
+@@ -4833,7 +4850,12 @@ bool Unit::IsUnderWater() const
  
  void Unit::DeMorph()
  {
@@ -7197,7 +7206,7 @@ index fef8c9caf..7d63ae592 100644
  
  int32 Unit::GetHighestExclusiveSameEffectSpellGroupValue(AuraEffect const* aurEff, AuraType auraType, bool checkMiscValue /*= false*/, int32 miscValue /*= 0*/) const
 diff --git a/src/server/game/Entities/Unit/Unit.h b/src/server/game/Entities/Unit/Unit.h
-index 21200380b..362754470 100644
+index 6ce392afe..2640e479b 100644
 --- a/src/server/game/Entities/Unit/Unit.h
 +++ b/src/server/game/Entities/Unit/Unit.h
 @@ -854,6 +854,9 @@ public:
@@ -7211,10 +7220,10 @@ index 21200380b..362754470 100644
      /***            METHODS RELATED TO COMBATS             ***/
      /*********************************************************/
 diff --git a/src/server/game/Maps/Map.cpp b/src/server/game/Maps/Map.cpp
-index a7d6efb51..8243ca360 100644
+index 41383ba71..a64a429d1 100644
 --- a/src/server/game/Maps/Map.cpp
 +++ b/src/server/game/Maps/Map.cpp
-@@ -761,7 +761,8 @@ void Map::RemoveFromMap(T* obj, bool remove)
+@@ -774,7 +774,8 @@ void Map::RemoveFromMap(T* obj, bool remove)
  
      obj->RemoveFromWorld();
  
@@ -7225,7 +7234,7 @@ index a7d6efb51..8243ca360 100644
      obj->ResetMap();
  
 diff --git a/src/server/game/Spells/Auras/SpellAuraEffects.cpp b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
-index 1edb6a29f..caf33cfc7 100644
+index aeb0e9c15..a8d51cfb2 100644
 --- a/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 +++ b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 @@ -2086,6 +2086,24 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
@@ -7254,7 +7263,7 @@ index 1edb6a29f..caf33cfc7 100644
      {
          // remove polymorph before changing display id to keep new display id
 diff --git a/src/server/game/Spells/Spell.cpp b/src/server/game/Spells/Spell.cpp
-index d5e3f08e8..6dee7e456 100644
+index 431c0b148..07f4eacb6 100644
 --- a/src/server/game/Spells/Spell.cpp
 +++ b/src/server/game/Spells/Spell.cpp
 @@ -3582,6 +3582,9 @@ SpellCastResult Spell::prepare(SpellCastTargets const* targets, AuraEffect const
@@ -7267,7 +7276,7 @@ index d5e3f08e8..6dee7e456 100644
  
      // don't allow channeled spells / spells with cast time to be casted while moving
      // (even if they are interrupted on moving, spells with almost immediate effect get to have their effect processed before movement interrupter kicks in)
-@@ -6830,7 +6833,9 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* /*param1*/, uint32* /*para
+@@ -6835,7 +6838,9 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* /*param1*/, uint32* /*para
                      if (m_caster->IsPlayer() && !allowMount && !m_spellInfo->AreaGroupId)
                          return SPELL_FAILED_NO_MOUNTS_ALLOWED;
  
