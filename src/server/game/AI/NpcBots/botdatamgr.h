@@ -4,7 +4,7 @@
 #include "botcommon.h"
 #include "DatabaseEnvFwd.h"
 #include "DBCEnums.h"
- 
+
 #include <algorithm>
 #include <functional>
 #include <map>
@@ -16,6 +16,7 @@ class BattlegroundQueue;
 class Creature;
 class Group;
 class Item;
+class Map;
 class Player;
 class WanderNode;
 class WorldLocation;
@@ -105,6 +106,13 @@ struct NpcBotAppearanceData
     uint8 hair;
     uint8 haircolor;
     uint8 features;
+
+    NpcBotAppearanceData(uint32 bgender, uint64 bskin, uint32 bface, uint32 bhair, uint8 bhaircolor, uint8 bfeatures)
+        : gender(bgender), skin(bskin), face(bface), hair(bhair), haircolor(bhaircolor), features(bfeatures) {}
+    NpcBotAppearanceData(NpcBotAppearanceData const&) = delete;
+    NpcBotAppearanceData(NpcBotAppearanceData&&) = delete;
+    NpcBotAppearanceData& operator=(NpcBotAppearanceData const&) = delete;
+    NpcBotAppearanceData& operator=(NpcBotAppearanceData&&) = delete;
 };
 
 struct NpcBotExtras
@@ -219,9 +227,11 @@ public:
     static uint8 GetOwnedBotsCount(ObjectGuid owner_guid, uint32 class_mask = 0, bool count_shared = false);
     static uint8 GetAccountBotsCount(uint32 account_id);
 
+    static void DespawnDungeonBot(uint32 entry);
     static void DespawnWandererBot(uint32 entry);
     static void LoadWanderMap(bool reload = false, bool force_all_maps = false);
     static void GenerateWanderingBots();
+    static void GenerateDungeonBots(Player const* leader, Group const* group, Map const* map);
     static bool GenerateBattlegroundBots(Player const* groupLeader, Group const* group, BattlegroundQueue* queue, PvPDifficultyEntry const* bracketEntry, GroupQueueInfo const* gqinfo);
     static void CreateWanderingBotsSortedGear();
     static ItemPerBotClassMap const& GetWanderingBotsSortedGearMap();
@@ -238,6 +248,25 @@ public:
     static uint32 GetDefaultFactionForBotRaceClass(uint8 bot_class, uint8 bot_race);
     static TeamId GetTeamIdForFaction(uint32 factionTemplateId);
     static uint32 GetTeamForFaction(uint32 factionTemplateId);
+    static uint32 GetFirstRoleInMask(uint32 roles_mask);
+    static uint32 LFGToBotRoles(uint8 roles_mask);
+    static uint8 BotToLFGRoles(uint32 roles_mask, bool first_in_mask = true);
+    static uint32 DefaultRolesForClass(uint8 m_class, uint8 spec);
+    static uint32 GetViableRolesForClass(uint8 bot_class);
+    static uint8 SelectBotSpecForRoles(uint8 bot_class, uint32 bot_role);
+    static uint8 SelectSpecForClass(uint8 m_class);
+    static uint32 TextForSpec(uint8 spec);
+    static bool IsValidSpecForClass(uint8 m_class, uint8 spec);
+    static bool IsBotClassMask(uint8 m_class, uint32 class_mask) { return !!((1ull << m_class) & class_mask); }
+    static bool IsMeleeClass(uint8 m_class);
+    static bool IsTankingClass(uint8 m_class);
+    static bool IsBlockingClass(uint8 m_class);
+    static bool IsCastingClass(uint8 m_class);
+    static bool IsHealingClass(uint8 m_class);
+    static bool IsHumanoidClass(uint8 m_class);
+    static bool IsHeroExClass(uint8 m_class);
+    static bool IsBotSpecMask(uint8 spec, uint32 spec_mask) { return !!((1ull << spec) & spec_mask); }
+    static bool IsMeleeSpec(uint8 spec);
 
     static bool CanDepositBotBankItemsCount(ObjectGuid playerGuid, uint32 items_count);
     static BotBankItemContainer const* GetBotBankItems(ObjectGuid playerGuid);

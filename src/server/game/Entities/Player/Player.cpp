@@ -2376,50 +2376,52 @@ void Player::RemoveFromGroup(Group* group, ObjectGuid guid, RemoveMethod method 
     if (group)
     {
         //npcbot - player is being removed from group - remove bots from that group
-        if (Player* player = ObjectAccessor::FindPlayer(guid))
+        if (guid.IsPlayer())
         {
-            if (player->HaveBot())
+            if (Player* player = ObjectAccessor::FindPlayer(guid))
             {
-                //remove npcbots and set up new group if needed
-                player->GetBotMgr()->RemoveAllBotsFromGroup();
-                group = player->GetGroup();
-                if (!group)
-                    return; //group has been disbanded
-            }
-        }
-        //npcbot - deleting player from db: remove bots
-        else if (guid.IsPlayer())
-        {
-            std::vector<ObjectGuid> botguids;
-            botguids.reserve(BotCfg::GetMaxNpcBots(DEFAULT_MAX_LEVEL) / 2 + 1);
-            BotDataMgr::GetNPCBotGuidsByOwner(botguids, guid, true);
-            for (std::vector<ObjectGuid>::const_iterator ci = botguids.begin(); ci != botguids.end(); ++ci)
-            {
-                if (group->IsMember(*ci))
+                if (player->HaveBot())
                 {
-                    if (!group->RemoveMember(*ci, method, kicker, reason))
-                        return;
+                    //remove npcbots and set up new group if needed
+                    player->GetBotMgr()->RemoveAllBotsFromGroup();
+                    if (group->isLFGGroup())
+                        player->GetBotMgr()->RemoveAllSummonedBots();
+                    group = player->GetGroup();
+                    if (!group)
+                        return; //group has been disbanded
                 }
+            }
+            //npcbot - deleting player from db: remove bots
+            else
+            {
+                std::vector<ObjectGuid> botguids;
+                botguids.reserve(static_cast<std::size_t>(BotCfg::GetMaxNpcBots(DEFAULT_MAX_LEVEL) / 2u) + 1u);
+                BotDataMgr::GetNPCBotGuidsByOwner(botguids, guid, true);
+                for (ObjectGuid botguid : botguids)
+                    if (group->IsMember(botguid))
+                        if (!group->RemoveMember(botguid, method, kicker, reason))
+                            return;
             }
         }
         //npcbot - bot is being removed from group - find master and remove bot through botmap
         else if (guid.IsCreature())
         {
-            for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+            for (GroupReference const* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
             {
-                if (Player* member = itr->GetSource())
+                if (Player const* member = itr->GetSource())
                 {
-                    if (!member->HaveBot())
-                        continue;
-
                     if (Creature* bot = member->GetBotMgr()->GetBot(guid))
                     {
+                        if (group->isLFGGroup() && bot->IsSummon())
+                            return;
+
                         member->GetBotMgr()->RemoveBotFromGroup(bot);
                         return;
                     }
                 }
             }
         }
+        //end npcbot
 
         group->RemoveMember(guid, method, kicker, reason);
         group = nullptr;
@@ -10551,24 +10553,39 @@ void Player::ContinueTaxiFlight()
 
     TaxiPathNodeList const& nodeList = sTaxiPathNodesByPath[path];
 
-    float bestDist = SIZE_OF_GRIDS * SIZE_OF_GRIDS; // xinef: large value
-    float currDist = 0.0f;
+    // Use triangle inequality to find the segment the player is on.
+    // When distPrev + distNext < distNodes, the player projects between
+    // the two nodes of the segment. Resume from the end node (i).
+    float distPrev;
+    float distNext =
+        (nodeList[0]->x - GetPositionX()) * (nodeList[0]->x - GetPositionX()) +
+        (nodeList[0]->y - GetPositionY()) * (nodeList[0]->y - GetPositionY()) +
+        (nodeList[0]->z - GetPositionZ()) * (nodeList[0]->z - GetPositionZ());
 
-    // xinef: changed to -1, we dont want to catch last node
-    for (uint32 i = 0; i < nodeList.size() - 1; ++i)
+    for (uint32 i = 1; i < nodeList.size(); ++i)
     {
         TaxiPathNodeEntry const* node = nodeList[i];
-        TaxiPathNodeEntry const* nextNode = nodeList[i + 1];
+        TaxiPathNodeEntry const* prevNode = nodeList[i - 1];
 
-        // xinef: skip nodes at another map, get last valid node on current map
-        if (nextNode->mapid != GetMapId() || node->mapid != GetMapId())
+        // skip nodes at another map
+        if (node->mapid != GetMapId())
             continue;
 
-        currDist = (node->x - GetPositionX()) * (node->x - GetPositionX()) + (node->y - GetPositionY()) * (node->y - GetPositionY()) + (node->z - GetPositionZ()) * (node->z - GetPositionZ());
-        if (currDist < bestDist)
+        distPrev = distNext;
+        distNext =
+            (node->x - GetPositionX()) * (node->x - GetPositionX()) +
+            (node->y - GetPositionY()) * (node->y - GetPositionY()) +
+            (node->z - GetPositionZ()) * (node->z - GetPositionZ());
+
+        float distNodes =
+            (node->x - prevNode->x) * (node->x - prevNode->x) +
+            (node->y - prevNode->y) * (node->y - prevNode->y) +
+            (node->z - prevNode->z) * (node->z - prevNode->z);
+
+        if (distPrev + distNext < distNodes)
         {
             startNode = i;
-            bestDist = currDist;
+            break;
         }
     }
 
@@ -13232,7 +13249,7 @@ PartyResult Player::CanUninviteFromGroup(ObjectGuid targetPlayerGUID) const
         if (state == lfg::LFG_STATE_FINISHED_DUNGEON)
             return ERR_PARTY_LFG_BOOT_DUNGEON_COMPLETE;
 
-        if (grp->isRollLootActive())
+        if (grp->isRollLootActive() && ObjectAccessor::FindConnectedPlayer(targetPlayerGUID))
             return ERR_PARTY_LFG_BOOT_LOOT_ROLLS;
 
         /// @todo: Should also be sent when anyone has recently left combat, with an aprox ~5 seconds timer.
@@ -14513,6 +14530,13 @@ bool Player::CanSeeSpellClickOn(Creature const* c) const
     }
 
     return false;
+}
+
+bool Player::CanSeeObjectByVisibilityConditions(WorldObject const* object) const
+{
+    ConditionList conds = sConditionMgr->GetConditionsForObjectVisibility(object);
+    ConditionSourceInfo info = ConditionSourceInfo(const_cast<Player*>(this), const_cast<WorldObject*>(object));
+    return sConditionMgr->IsObjectMeetToConditions(info, conds);
 }
 
 /**
