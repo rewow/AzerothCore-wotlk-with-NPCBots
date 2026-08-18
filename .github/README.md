@@ -40,7 +40,8 @@ Please take the time to review existing issues before submitting your own to
 prevent duplicates.
 
 
-## Submitting fixes
+
+Click on the "⭐ Star" button to help us gain more visibility on GitHub!
 
 C++ fixes are submitted as [pull requests](https://github.com/trickerer/Azerothcore-wotlk-with-NPCBots/pulls).
 
