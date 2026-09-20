@@ -25,6 +25,11 @@
 #include "SpellAuraDefines.h"
 #include "SpellAuraEffects.h"
 
+//npcbot
+#include "botconfig.h"
+#include "botmgr.h"
+//end npcbot
+
 // KillRewarder incapsulates logic of rewarding player upon kill with:
 // * XP;
 // * honor;
@@ -74,6 +79,10 @@ KillRewarder::KillRewarder(Player* killer, Unit* victim, bool isBattleGround) :
     // mark the credit as pvp if victim is player
     if (victim->IsPlayer())
         _isPvP = true;
+    //npcbot
+    else if (victim->IsNPCBotOrPet())
+        _isPvP = true;
+    //end npcbot
         // or if its owned by player and its not a vehicle
     else if (victim->GetCharmerOrOwnerGUID().IsPlayer())
         _isPvP = !victim->IsVehicle();
@@ -114,6 +123,46 @@ void KillRewarder::_InitGroupData()
                     // 2.5. _sumLevel - sum of levels of group members within reward distance;
                     _sumLevel += lvl;
                 }
+
+        //npcbot
+        _bots_count_xp = 0;
+        _bots_count_honor = 0;
+        if (BotCfg::IsNpcBotXpReductionEnabled() || BotCfg::IsNpcBotHonorReductionEnabled())
+        {
+            const float reward_dist_sq = std::pow(sWorld->getFloatConfig(CONFIG_GROUP_XP_DISTANCE), 2.f);
+            for (GroupReference const* itr = _group->GetFirstMember(); itr != nullptr; itr = itr->next())
+            {
+                Player const* member = itr->GetSource();
+                if (!member || !member->IsInMap(_victim) || !member->HaveBot())
+                    continue;
+
+                BotMap const* botMap = member->GetBotMgr()->GetBotMap();
+                for (auto const& kv : *botMap)
+                {
+                    Creature const* bot = kv.second;
+                    if (bot && bot->IsAlive() && bot->IsInMap(_victim) &&
+                        (member->GetMap()->IsDungeon() || _victim->GetExactDistSq(bot) <= reward_dist_sq))
+                    {
+                        const bool add_for_xp = BotCfg::IsNpcBotXpReductionEnabled() && (!BotCfg::IsNpcBotXpReductionGroupOnly() || _group->IsMember(kv.first));
+                        const bool add_for_honor = BotCfg::IsNpcBotHonorReductionEnabled() && (!BotCfg::IsNpcBotHonorReductionGroupOnly() || _group->IsMember(kv.first));
+                        if (add_for_xp || add_for_honor)
+                        {
+                            if (add_for_xp)
+                                ++_bots_count_xp;
+                            if (add_for_honor)
+                                ++_bots_count_honor;
+                            const uint8 lvl = bot->GetLevel();
+                            _sumLevel += lvl;
+                            _aliveSumLevel += lvl;
+                            if (_maxLevel < lvl)
+                                _maxLevel = lvl;
+                        }
+                    }
+                }
+            }
+        }
+        //end npcbot
+
         // 2.6. _isFullXP - flag identifying that for all group members victim is not gray,
         //      so 100% XP will be rewarded (50% otherwise).
         _isFullXP = _maxNotGrayMember && (_maxLevel == _maxNotGrayMemberLevel);
@@ -142,6 +191,14 @@ void KillRewarder::_InitXP(Player* player)
 void KillRewarder::_RewardHonor(Player* player)
 {
     // Rewarded player must be alive.
+    //npcbot
+    if (BotCfg::IsNpcBotHonorReductionEnabled())
+    {
+        if (player->IsAlive())
+            player->RewardHonor(_victim, _count + _bots_count_honor, -1, true);
+    }
+    else
+    //end npcbot
     if (player->IsAlive())
         player->RewardHonor(_victim, _count, -1);
 }
@@ -179,6 +236,16 @@ void KillRewarder::_RewardXP(Player* player, float rate)
     {
         // 4.2.2. Apply auras modifying rewarded XP (SPELL_AURA_MOD_XP_PCT).
         xp *= player->GetTotalAuraMultiplier(SPELL_AURA_MOD_XP_PCT);
+
+        //npcbot 4.2.2.1. Apply NpcBot XP reduction
+        const uint8 xp_reduction = BotCfg::GetNpcBotXpReductionExtraAmount();
+        const uint8 xp_reduction_start = BotCfg::GetNpcBotXpReductionExtraStartingNumber();
+        if (xp_reduction_start > 0 && xp_reduction > 0 && _bots_count_xp >= xp_reduction_start)
+        {
+            const uint32 ratePct = static_cast<uint32>(std::max<int32>(100 - ((_bots_count_xp - (xp_reduction_start - 1)) * xp_reduction), 10));
+            xp = xp * ratePct / 100;
+        }
+        //end npcbot
 
         // 4.2.3. Give XP to player.
         sScriptMgr->OnPlayerGiveXP(player, xp, _victim, PlayerXPSource::XPSOURCE_KILL);
@@ -258,6 +325,11 @@ void KillRewarder::_RewardGroup()
             {
                 // 3.1.2. Alter group rate if group is in raid (not for battlegrounds).
                 const bool isRaid = !_isPvP && sMapStore.LookupEntry(_killer->GetMapId())->IsRaid() && _group->isRaidGroup();
+                //npcbot
+                if (_bots_count_xp)
+                    _groupRate = Acore::XP::xp_in_group_rate(_count + _bots_count_xp, isRaid);
+                else
+                //end npcbot
                 _groupRate = Acore::XP::xp_in_group_rate(_count, isRaid);
             }
 

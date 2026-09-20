@@ -28,6 +28,11 @@
 #include "SpellAuraEffects.h"
 #include "SpellMgr.h"
 
+//npcbot
+#include "botmgr.h"
+#include "botspell.h"
+//end npcbot
+
 uint32 GetTargetFlagMask(SpellTargetObjectTypes objType)
 {
     switch (objType)
@@ -452,6 +457,31 @@ int32 SpellEffectInfo::CalcValue(WorldObject const* caster, int32 const* bp, Uni
     // random damage
     if (casterUnit)
     {
+        //npcbot: Life Burst heal tempfix 2013
+        float pointsPerComboPoint = PointsPerComboPoint;
+        if (_spellInfo->Id == 57143 && EffectIndex == EFFECT_1)
+        {
+            basePoints = 2500;
+            value = float(basePoints);
+            pointsPerComboPoint = 2500.f;
+        }
+        //npcbot: bonus amount from combo points and specific mods
+        if (casterUnit->IsNPCBot())
+        {
+            if (uint8 comboPoints = casterUnit->ToCreature()->GetCreatureComboPoints())
+                value += pointsPerComboPoint * comboPoints;
+        }
+        //npcbot: bonus amount from combo points (vehicle)
+        else if (casterUnit->IsVehicle() && casterUnit->IsCreature() && casterUnit->GetCharmerGUID().IsCreature() &&
+            PointsPerComboPoint)
+        {
+            Unit const* bot = casterUnit->GetCharmer();
+            if (bot && bot->ToCreature()->IsNPCBot())
+                if (uint8 comboPoints = bot->ToCreature()->GetCreatureComboPoints())
+                    value += pointsPerComboPoint * comboPoints;
+        }
+        else
+        //end npcbot
         // bonus amount from combo points
         if (uint8 comboPoints = casterUnit->GetComboPoints())
         {
@@ -535,6 +565,12 @@ float SpellEffectInfo::CalcValueMultiplier(WorldObject* caster, Spell* spell) co
     float multiplier = ValueMultiplier;
     if (Player* modOwner = (caster ? caster->GetSpellModOwner() : nullptr))
         modOwner->ApplySpellMod(_spellInfo->Id, SPELLMOD_VALUE_MULTIPLIER, multiplier, spell);
+
+    //npcbot - apply bot spell effect value mult mods
+    if (caster && caster->IsNPCBot())
+        BotMgr::ApplyBotEffectValueMultiplierMods(caster->ToCreature(), _spellInfo, SpellEffIndex(EffectIndex), multiplier);
+    //end npcbot
+
     return multiplier;
 }
 
@@ -565,6 +601,11 @@ float SpellEffectInfo::CalcRadius(WorldObject* caster, Spell* spell) const
         radius = std::min(radius, RadiusEntry->RadiusMax);
         if (Player* modOwner = caster->GetSpellModOwner())
             modOwner->ApplySpellMod(_spellInfo->Id, SPELLMOD_RADIUS, radius, spell);
+
+        //npcbot - apply bot spell radius mods
+        if (caster->IsNPCBotOrPet())
+            caster->ToCreature()->ApplyCreatureSpellRadiusMods(_spellInfo, radius);
+        //end npcbot
     }
 
     return radius;
@@ -879,6 +920,12 @@ SpellInfo::SpellInfo(SpellEntry const* spellEntry)
 SpellInfo::~SpellInfo()
 {
     _UnloadImplicitTargetConditionLists();
+}
+
+SpellInfo const* SpellInfo::TryGetSpellInfoOverride(WorldObject const* caster) const
+{
+    SpellInfo const* spellInfoOverride = (caster && caster->IsNPCBotOrPet()) ? GetBotSpellInfoOverride(Id) : nullptr;
+    return spellInfoOverride ? spellInfoOverride : this;
 }
 
 uint32 SpellInfo::GetCategory() const
@@ -1797,9 +1844,15 @@ SpellCastResult SpellInfo::CheckTarget(WorldObject const* caster, WorldObject co
     else
     {
         if (HasAttribute(SPELL_ATTR3_ONLY_ON_PLAYER))
+            //npcbot: allow to target bots
+            if (!unitTarget->IsNPCBot())
+            //end npcbot
             return SPELL_FAILED_TARGET_NOT_PLAYER;
 
         if (HasAttribute(SPELL_ATTR5_NOT_ON_PLAYER_CONTROLLED_NPC) && unitTarget->IsControlledByPlayer())
+            //npcbot: allow to target bots
+            if (!unitTarget->IsNPCBot())
+            //end npcbot
             return SPELL_FAILED_TARGET_IS_PLAYER_CONTROLLED;
     }
 
@@ -1899,6 +1952,13 @@ SpellCastResult SpellInfo::CheckExplicitTarget(WorldObject const* caster, WorldO
                     return SPELL_CAST_OK;
             return SPELL_FAILED_BAD_TARGETS;
         }
+        //npcbot
+        else if ((neededTargets & TARGET_FLAG_CORPSE_ALLY) && unitTarget->IsNPCBot())
+        {
+            if (!unitCaster || !unitCaster->_IsValidAssistTarget(unitTarget, this))
+                return SPELL_FAILED_BAD_TARGETS;
+        }
+        //end npcbot
     }
     return SPELL_CAST_OK;
 }
@@ -2911,6 +2971,11 @@ int32 SpellInfo::CalcPowerCost(WorldObject const* caster, SpellSchoolMask school
                 powerCost *= casterScaler->ratio / spellScaler->ratio;
         }
     }
+
+    //npcbot - apply bot spell cost mods
+    if (powerCost > 0 && caster->IsNPCBot())
+        caster->ToCreature()->ApplyCreatureSpellCostMods(this, powerCost);
+    //end npcbot
 
     // PCT mod from user auras by school
     powerCost = int32(powerCost * (1.0f + unitCaster->GetFloatValue(static_cast<uint16>(UNIT_FIELD_POWER_COST_MULTIPLIER) + school)));

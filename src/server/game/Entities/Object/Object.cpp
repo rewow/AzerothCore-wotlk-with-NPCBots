@@ -1096,6 +1096,11 @@ void WorldObject::setActive(bool on)
     if (IsPlayer())
         return;
 
+    //npcbot: bots should never be removed from active
+    if (on == false && IsNPCBotOrPet())
+        return;
+    //end npcbot
+
     m_isActive = on;
 
     if (!on || !IsInWorld())
@@ -1183,6 +1188,10 @@ void WorldObject::SetPositionDataUpdate()
     // Calls immediately for charmed units
     if (IsCreature() && ToUnit()->IsCharmedOwnedByPlayerOrPlayer())
         UpdatePositionData();
+    //npcbot
+    else if (IsNPCBotOrPet() && ToUnit()->IsControlledByPlayer())
+        UpdatePositionData();
+    //end npcbot
 }
 
 void WorldObject::UpdatePositionData()
@@ -1972,6 +1981,26 @@ bool WorldObject::CanDetect(WorldObject const* obj, bool ignoreStealth, bool che
 {
     WorldObject const* seer = this;
 
+    //npcbot: master's sight only partially affects bots
+    if (IsNPCBot())
+    {
+        Unit const* owner = ToCreature()->GetBotOwner();
+        if (!owner)
+            owner = ToUnit();
+
+        if (!obj->IsAlwaysDetectableFor(seer) && !obj->IsAlwaysDetectableFor(owner) && !ignoreStealth)
+        {
+            if (!seer->CanDetectInvisibilityOf(obj) && !(owner->IsInWorld() && owner->GetMap()->IsDungeon() && owner->CanDetectInvisibilityOf(obj)))
+                return false;
+
+            if (!seer->CanDetectStealthOf(obj, checkAlert))
+                return false;
+        }
+
+        return true;
+    }
+    //end npcbot
+
     // Pets don't have detection, they use the detection of their masters
     if (Unit const* thisUnit = ToUnit())
         if (Unit* controller = thisUnit->GetCharmerOrOwner())
@@ -2311,6 +2340,11 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
             summon = new Puppet(properties, summoner ? summoner->GetGUID() : ObjectGuid::Empty);
             break;
         case UNIT_MASK_TOTEM:
+            //npcbot: totem emul step 1
+            if (summoner && summoner->IsNPCBot())
+                summon = new Totem(properties, summoner->ToCreature()->GetBotOwner()->GetGUID());
+            else
+            //end npcbot
             summon = new Totem(properties, summoner ? summoner->GetGUID() : ObjectGuid::Empty);
             break;
         case UNIT_MASK_MINION:
@@ -2326,6 +2360,25 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
         delete summon;
         return nullptr;
     }
+
+    //npcbot: totem emul step 2
+    if (summoner && summoner->IsNPCBot() && !summon->IsTempBot())
+    {
+        summon->SetCreatorGUID(summoner->GetGUID()); // see TempSummon::InitStats()
+        if (mask == UNIT_MASK_TOTEM)
+        {
+            summon->SetFaction(summoner->ToCreature()->GetFaction());
+            summon->SetPvP(summoner->ToCreature()->IsPvP());
+            //set key flags if needed
+            if (!summoner->ToCreature()->IsFreeBot())
+            {
+                summon->SetUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
+                summon->SetOwnerGUID(summoner->ToCreature()->GetBotOwner()->GetGUID());
+                summon->SetControlledByPlayer(true);
+            }
+        }
+    }
+    //end npcbot
 
     summon->SetUInt32Value(UNIT_CREATED_BY_SPELL, spellId);
 
@@ -2350,6 +2403,12 @@ TempSummon* Map::SummonCreature(uint32 entry, Position const& pos, SummonPropert
     // first (grid typelist order) so aggressive summons prefer them over pets/totems
     Acore::AIRelocationNotifier notifier(*summon, true);
     Cell::VisitObjects(summon, notifier, GetVisibilityRange());
+
+    //npcbot: totem emul step 3
+    if (summoner && summoner->IsNPCBot())
+        summoner->ToCreature()->OnBotSummon(summon);
+    //end npcbot
+
 
     return summon;
 }
@@ -2974,14 +3033,14 @@ Position WorldObject::GetFirstCollisionPosition(float destX, float destY, float 
     return pos;
 }
 
-Position WorldObject::GetFirstCollisionPosition(float dist, float angle)
+Position WorldObject::GetFirstCollisionPosition(float dist, float angle) const
 {
     Position pos = GetPosition();
     MovePositionToFirstCollision(pos, dist, angle);
     return pos;
 }
 
-void WorldObject::MovePositionToFirstCollision(Position& pos, float dist, float angle)
+void WorldObject::MovePositionToFirstCollision(Position& pos, float dist, float angle) const
 {
     angle += GetOrientation();
     float destx, desty, destz;
@@ -3379,6 +3438,24 @@ int32 WorldObject::CalcSpellDuration(SpellInfo const* spellProto) const
     if (Unit const* unitCaster = ToUnit())
         comboPoints = unitCaster->GetComboPoints();
 
+    //npcbot
+    if (IsNPCBot())
+        comboPoints = ToCreature()->GetCreatureComboPoints();
+    else
+    //npcbot: combo points support for spell duration (vehicle)
+    if (ToCreature() && ToCreature()->IsVehicle() && ToCreature()->GetCharmerGUID().IsCreature() &&
+        spellProto->GetDuration() != spellProto->GetMaxDuration())
+    {
+        Unit const* bot = ToCreature()->GetCharmer();
+        if (bot && bot->IsNPCBot())
+        {
+            comboPoints = bot->ToCreature()->GetCreatureComboPoints();
+            //TC_LOG_ERROR("scripts", "CalcSpellDuration bot %s veh spell %u cp %u",
+            //    bot->GetName().c_str(), spellProto->Id, uint32(comboPoints));
+        }
+    }
+    //end npcbot
+
     int32 minduration = spellProto->GetDuration();
     int32 maxduration = spellProto->GetMaxDuration();
 
@@ -3507,6 +3584,11 @@ void WorldObject::ModSpellCastTime(SpellInfo const* spellInfo, int32& castTime, 
         /// @todo:(MadAgos) Eventually check and delete the bool argument
         modOwner->ApplySpellMod(spellInfo->Id, SPELLMOD_CASTING_TIME, castTime, spell, bool(modOwner != this && !(unitCaster && unitCaster->IsPet())));
 
+    //npcbot - apply bot spell cast time mods
+    if (castTime > 0 && IsNPCBot())
+        ToCreature()->ApplyCreatureSpellCastTimeMods(spellInfo, castTime);
+    //end npcbot
+
     if (!unitCaster)
         return;
 
@@ -3614,6 +3696,11 @@ SpellMissInfo WorldObject::MagicSpellHitResult(Unit* victim, SpellInfo const* sp
         else
             HitChance += int32(unitCaster->m_modSpellHitChance * 100.0f);
     }
+
+    //npcbot: spell hit chance bonus
+    if (IsNPCBot())
+        HitChance -= int32(ToCreature()->GetCreatureMissChance() * 100.f);
+    //end npcbot
 
     if (HitChance < 100)
         HitChance = 100;

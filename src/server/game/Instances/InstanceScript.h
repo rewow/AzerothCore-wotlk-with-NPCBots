@@ -193,6 +193,13 @@ public:
     //Called when a player enters/leaves water bodies.
     virtual void OnPlayerInWaterStateUpdate(Player* /*player*/, bool /*inWater*/) {}
 
+    //npcbot: map hooks
+    virtual void OnNPCBotEnter(Creature* /*bot*/) { }
+    virtual void OnNPCBotLeave(Creature* /*bot*/) { }
+    void DoRemoveAurasDueToSpellOnNPCBot(Creature* bot, uint32 spell);
+    void DoCastSpellOnNPCBot(Creature* bot, uint32 spell);
+    //end npcbot
+
     /**
      * @brief Open or close a GameObject by GUID.
      * @param guid The GUID of the GameObject. Pass ObjectGuid::Empty when providing the go pointer directly.

@@ -2,7 +2,8 @@ name: nopch-build
 on:
   push:
     branches:
-      - 'master'
+      - 'npcbots_3.3.5'
+      - 'CI'
   pull_request:
     types:
       - opened
@@ -73,7 +74,7 @@ jobs:
               CXX: clang++-21
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.os }}-${{ matrix.compiler.CC }}-nopch
-    if: github.repository == 'azerothcore/azerothcore-wotlk' && !github.event.pull_request.draft
+    if: github.repository == 'trickerer/AzerothCore-wotlk-with-NPCBots' && !github.event.pull_request.draft
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/linux-build

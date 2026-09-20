@@ -121,7 +121,7 @@ struct AccountFlagName
 
 AC_COMMON_API extern AccountFlagName const accountFlagNames[MAX_ACCOUNT_FLAG];
 
-enum LocaleConstant
+enum LocaleConstant : uint8
 {
     LOCALE_enUS = 0,
     LOCALE_koKR = 1,

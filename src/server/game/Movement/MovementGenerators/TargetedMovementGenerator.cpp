@@ -503,6 +503,28 @@ static Optional<float> GetVelocity(Unit* owner, Unit* target, G3D::Vector3 const
 
     bool isPetLike = owner->IsPet() || owner->IsGuardian() || owner->GetGUID() == target->GetCritterGUID() || owner->GetCharmerOrOwnerGUID() == target->GetGUID();
 
+    //npcbot
+    if (owner->IsNPCBotPet() && (target->GetGUID() == owner->GetOwnerGUID() || target->GetGUID() == owner->GetCreatorGUID()))
+    {
+        UnitMoveType moveType = Movement::SelectSpeedType(target->GetUnitMovementFlags());
+        speed = target->GetSpeed(moveType);
+        float distance = owner->GetDistance2d(dest.x, dest.y) - target->GetObjectSize() - (*speed / 2.f);
+        if (distance > 0.f)
+        {
+            float multiplier;
+            if (distance > 50.0f)
+                multiplier = 2.0f;
+            else if (distance > 30.0f)
+                multiplier = 1.5f;
+            else if (distance > 10.0f)
+                multiplier = 1.25f;
+            else
+                multiplier = 1.f + (distance / 10.f);
+            *speed *= multiplier;
+        }
+    }
+    else
+    //end npcbot
     // For pets/guardians/critters or creature-to-creature follow: sync with target's speed
     if (isPetLike || (owner->IsCreature() && target->IsCreature()))
     {

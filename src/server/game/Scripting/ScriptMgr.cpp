@@ -25,6 +25,10 @@
 #include "Utilities/TypeList.h"
 #include "UnitAI.h"
 
+//npcbot
+#include "botconfig.h"
+//end npcbot
+
 namespace
 {
     // Metadata for the script-registry operations derived in this file.
@@ -126,6 +130,10 @@ void ScriptMgr::Initialize()
     LOG_INFO("server.loading", " ");
 
     AddSC_SmartScripts();
+
+    //npcbot: load bot scripts here
+    AddNpcBotScripts();
+    //end npcbot
 
     // LFGScripts
     lfg::AddSC_LFGScripts();

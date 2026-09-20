@@ -31,6 +31,10 @@
 
 #include "ItemPackets.h"
 
+// npcbot
+#include "botmgr.h"
+//end npcbot
+
 void WorldSession::HandleSplitItemOpcode(WorldPackets::Item::SplitItem& packet)
 {
     //LOG_DEBUG("network.opcode", "WORLD: CMSG_SPLIT_ITEM");
@@ -908,6 +912,15 @@ void WorldSession::SendListInventory(ObjectGuid vendorGuid, uint32 vendorEntry)
         {
             if (ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(item->item))
             {
+                // npcbot
+                if (_player->HaveBot())
+                {
+                    if (!(itemTemplate->AllowableClass & (_player->GetClassMask() | _player->GetBotMgr()->GetAllNpcBotsClassMask())) &&
+                        itemTemplate->Bonding == BIND_WHEN_PICKED_UP && !_player->IsGameMaster())
+                        continue;
+                }
+                else
+                // end npcbot
                 if (!(itemTemplate->AllowableClass & _player->getClassMask()) && itemTemplate->Bonding == BIND_WHEN_PICKED_UP && !_player->IsGameMaster())
                 {
                     continue;
@@ -1070,7 +1083,13 @@ void WorldSession::HandleItemNameQueryOpcode(WorldPacket& recvData)
     {
         std::string Name = pName->name;
         LocaleConstant loc_idx = GetSessionDbLocaleIndex();
+        //npcbot: pointless check, see AccountInfo()
+        /*
+        //end npcbot
         if (loc_idx >= 0)
+        //npcbot
+        */
+        //end npcbot
             if (ItemSetNameLocale const* isnl = sObjectMgr->GetItemSetNameLocale(itemid))
                 ObjectMgr::GetLocaleString(isnl->Name, loc_idx, Name);
 

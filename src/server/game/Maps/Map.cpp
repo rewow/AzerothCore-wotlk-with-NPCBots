@@ -46,6 +46,10 @@
 #include "Weather.h"
 #include "WeatherMgr.h"
 
+//npcbot
+#include "botmgr.h"
+//end npcbot
+
 #define MAP_INVALID_ZONE        0xFFFFFFFF
 
 ZoneDynamicInfo::ZoneDynamicInfo() : MusicId(0), DefaultWeather(nullptr), WeatherId(WEATHER_STATE_FINE),
@@ -338,6 +342,9 @@ bool Map::AddToMap(T* obj, bool checkTransport)
     //obj->SetMap(this);
     obj->AddToWorld();
 
+    //npcbot: do not add bots to transport (handled inside AI)
+    if (!obj->IsNPCBotOrPet())
+    //end npcbot
     if (checkTransport)
         if (!(obj->IsGameObject() && obj->ToGameObject()->IsTransport())) // dont add transport to transport ;d
             if (Transport* transport = GetTransportForPos(obj->GetPhaseMask(), obj->GetPositionX(), obj->GetPositionY(), obj->GetPositionZ(), obj))
@@ -744,6 +751,34 @@ void Map::AfterPlayerUnlinkFromMap()
 template<class T>
 void Map::RemoveFromMap(T* obj, bool remove)
 {
+    //npcbot: tempfix for bots out of grid during remove from map
+    if constexpr (std::is_base_of_v<Creature, T>)
+    {
+        if (obj->IsNPCBot())
+        {
+            obj->RemoveFromWorld();
+
+            if (obj->IsInGrid())
+                obj->RemoveFromGrid();
+            else
+            {
+                Player const* owner = obj->ToCreature()->GetBotOwner();
+                BOT_LOG_ERROR("npcbots", "Map::Remove<Bot>FromMap() bot {} id {} is in map id {} \"{}\" instanceId {} but not in grid!\nmaster: {}\nmaster map id {} \"{}\"",
+                    obj->GetName(), obj->GetEntry(), GetId(), GetMapName(), i_InstanceId, owner ? owner->GetGUID().ToString() : std::string{ "Unknown" },
+                    (owner && owner->IsInWorld()) ? owner->GetMap()->GetId() : 0u, (owner && owner->IsInWorld()) ? std::string(owner->GetMap()->GetMapName()) : std::string{"Unknown"});
+            }
+
+            obj->ResetMap();
+            RemoveObjectFromMapUpdateList(obj);
+
+            if (remove)
+                DeleteFromWorld(obj);
+
+            return;
+        }
+    }
+    //end npcbot
+
     obj->RemoveFromWorld();
 
     obj->RemoveFromGrid();
@@ -839,6 +874,21 @@ void Map::CreatureRelocation(Creature* creature, float x, float y, float z, floa
     }
     else
         RemoveCreatureFromMoveList(creature);
+
+    //npcbot:
+    if (creature->IsNPCBotOrPet() && !creature->GetVehicle())
+    {
+        float old_orientation = creature->GetOrientation();
+        float current_z = creature->GetPositionZ();
+        bool turn = (old_orientation != o);
+        bool relocated = (creature->GetPositionX() != x || creature->GetPositionY() != y || current_z != z);
+        uint32 mask = 0;
+        if (turn) mask |= AURA_INTERRUPT_FLAG_TURNING;
+        if (relocated) mask |= AURA_INTERRUPT_FLAG_MOVE;
+        if (mask)
+            creature->RemoveAurasWithInterruptFlags(mask);
+    }
+    //end npcbot
 
     creature->Relocate(x, y, z, o);
     if (creature->IsVehicle())
@@ -1871,7 +1921,22 @@ uint32 Map::GetPlayersCountExceptGMs(bool aliveOnly /*= false*/) const
     for (auto const& ref : m_mapRefMgr)
         if (Player* player = ref.GetSource())
             if (!player->IsGameMaster() && (!aliveOnly || (player->IsAlive() && !player->HasSpiritOfRedemptionAura())))
+            //npcbot - count npcbots (event if not in group)
+            {
+                if (player->HaveBot() && BotMgr::LimitBots(this))
+                {
+                    for (auto const& [bguid, bot] : *player->GetBotMgr()->GetBotMap())
+                    {
+                        if (!bot || !bot->IsInWorld() || bot->FindMap() != this || bot->IsTempBot() || (aliveOnly && (!bot->IsAlive() || bot->HasSpiritOfRedemptionAura())))
+                            continue;
+                        ++count;
+                    }
+                }
+            //end npcbot
                 ++count;
+            //npcbot
+            }
+            //end npcbot
     return count;
 }
 

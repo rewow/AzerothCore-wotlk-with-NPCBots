@@ -277,6 +277,10 @@ public:
     bool GetDestination(float& x, float& y, float& z);
 
     void DistanceYourself(float range);
+
+    //npcbot: add an accessor for Mutate
+    void Add(MovementGenerator* m, MovementSlot slot = MOTION_SLOT_ACTIVE) { Mutate(m, slot); }
+    //end npcbot
 private:
     void Mutate(MovementGenerator* m, MovementSlot slot);                  // use Move* functions instead
 

@@ -132,3 +132,8 @@ e2e/local/**
 !e2e/local/README.md
 e2e/go.work
 e2e/go.work.sum
+
+#NPCBots
+!/data/sql/custom/db_auth/
+!/data/sql/custom/db_characters/
+!/data/sql/custom/db_world/
