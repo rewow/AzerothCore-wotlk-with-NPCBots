@@ -2093,7 +2093,8 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
 
     modelid = target->GetModelForForm(form, GetId());
 
-    // Ornfelt: debug info...
+#ifdef USE_CUSTOM_CHANGES
+    // debug info...
     //if (target->GetTypeId() == TYPEID_PLAYER);
     //{
     //    //LOG_INFO("server.loading", "IN HandleByAuraModShapeshift! modelid: {}", modelid);
@@ -2111,6 +2112,7 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
     //    }
     //}
 
+#endif
     if (apply)
     {
         // remove polymorph before changing display id to keep new display id

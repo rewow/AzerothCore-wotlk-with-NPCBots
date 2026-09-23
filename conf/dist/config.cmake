@@ -108,6 +108,7 @@ option(WITHOUT_METRICS     "Disable metrics reporting (i.e. InfluxDB and Grafana
 option(WITH_DETAILED_METRICS  "Enable detailed metrics reporting (i.e. time each session takes to update)" 0)
 option(TOOL_CONFIG_MERGER     "Install the Python config merger tool alongside config files" 0)
 option(USE_REAL_LIBSIDECAR "Use real libsidecar and expect that compiled shared lib is in deps/libsidecar folder." 0)
+option(USE_CUSTOM_CHANGES  "Enable custom changes to the core"                           1)
 
 CheckApplicationsBuildList()
 CheckToolsBuildList()

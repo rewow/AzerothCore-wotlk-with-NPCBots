@@ -781,8 +781,12 @@ void Map::RemoveFromMap(T* obj, bool remove)
 
     obj->RemoveFromWorld();
 
+#ifdef USE_CUSTOM_CHANGES
     if (obj->IsInGrid())
         obj->RemoveFromGrid();
+#else
+    obj->RemoveFromGrid();
+#endif
 
     obj->ResetMap();
 

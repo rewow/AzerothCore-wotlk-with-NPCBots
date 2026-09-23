@@ -225,7 +225,9 @@ GroupQueueInfo* BattlegroundQueue::AddGroup(Player* leader, Group* group, Battle
         SendMessageBGQueue(leader, bg, bracketEntry);
 
     //npcbot: try to queue wandering bots
+#ifdef USE_CUSTOM_CHANGES
     // if (!isRated && !arenaType && !arenaTeamId && !sBattlegroundMgr->isTesting() && !leader->GetGroup()) // Don't allow group queue
+#endif
     if (!isRated && !isPremade && !arenaType && !arenaTeamId && !sBattlegroundMgr->isTesting())
     {
         if (!BotDataMgr::GenerateBattlegroundBots(leader, group, this, bracketEntry, ginfo))
@@ -234,7 +236,8 @@ GroupQueueInfo* BattlegroundQueue::AddGroup(Player* leader, Group* group, Battle
                 uint32(bgTypeId), leader->GetDebugInfo().c_str(), group ? group->GetMembersCount() : 0u);
         }
     }
-    // Ornfelt: Arena:
+#ifdef USE_CUSTOM_CHANGES
+    // Arena:
     else if (!isRated && arenaType && !sBattlegroundMgr->isTesting() && !leader->GetGroup()) // Don't allow group queue
     {
         if (!BotDataMgr::GenerateBattlegroundBots(leader, group, this, bracketEntry, ginfo))
@@ -243,6 +246,7 @@ GroupQueueInfo* BattlegroundQueue::AddGroup(Player* leader, Group* group, Battle
                 uint32(bgTypeId), leader->GetDebugInfo().c_str(), group ? group->GetMembersCount() : 0u);
         }
     }
+#endif
     //end npcbot
 
     return ginfo;

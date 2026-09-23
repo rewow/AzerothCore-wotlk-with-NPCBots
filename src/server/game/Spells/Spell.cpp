@@ -3735,9 +3735,11 @@ SpellCastResult Spell::prepare(SpellCastTargets const* targets, AuraEffect const
     if (unitCaster && unitCaster->IsPlayer())
         if (unitCaster->ToPlayer()->GetCommandStatus(CHEAT_CASTTIME))
             m_casttime = 0;
-        // Ornfelt: remove cast time for ghost wolf
+#ifdef USE_CUSTOM_CHANGES
+        // remove cast time for ghost wolf
         else if (m_spellInfo->Id == 2645)
             m_casttime = 0;
+#endif
 
     // don't allow channeled spells / spells with cast time to be casted while moving
     // (even if they are interrupted on moving, spells with almost immediate effect get to have their effect processed before movement interrupter kicks in)
@@ -7113,8 +7115,12 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* /*param1*/, uint32* /*para
                     if (unitCaster && unitCaster->IsPlayer() && !allowMount && !m_spellInfo->AreaGroupId)
                         return SPELL_FAILED_NO_MOUNTS_ALLOWED;
 
-                    // Ornfelt: Allow display ID 7550 to mount even when in a normally disallowed mount form
+#ifdef USE_CUSTOM_CHANGES
+                    // Allow display ID 7550 to mount even when in a normally disallowed mount form
                     if (unitCaster && unitCaster->IsInDisallowedMountForm() && unitCaster->GetDisplayId() != 7550)
+#else
+                    if (unitCaster && unitCaster->IsInDisallowedMountForm())
+#endif
                         return SPELL_FAILED_NOT_SHAPESHIFT;
 
                     // xinef: dont allow to cast mounts in specific transforms

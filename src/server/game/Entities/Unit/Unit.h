@@ -855,9 +855,11 @@ public:
     void RestoreFaction();
     [[nodiscard]] uint32 GetOldFactionId() const { return _oldFactionId; }
 
-    // Ornfelt: demorphid
+#ifdef USE_CUSTOM_CHANGES
+    // demorphid
     uint32 demorphId = 0;
 
+#endif
     /*********************************************************/
     /***            METHODS RELATED TO COMBATS             ***/
     /*********************************************************/

@@ -843,8 +843,10 @@ public:
         }
 
         target->SetDisplayId(displayID);
-        // Ornfelt: morph
+#ifdef USE_CUSTOM_CHANGES
+        // morph
         //target->SetNativeDisplayId(displayID);
+#endif
         return true;
     }
 

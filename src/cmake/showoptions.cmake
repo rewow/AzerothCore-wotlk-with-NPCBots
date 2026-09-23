@@ -154,6 +154,13 @@ else()
   message("* Enable vmap DisableMgr checks   : No")
 endif()
 
+if( USE_CUSTOM_CHANGES )
+  message("* Use custom changes              : Yes (default)")
+  add_definitions(-DUSE_CUSTOM_CHANGES)
+else()
+  message("* Use custom changes              : No")
+endif()
+
 if(WIN32)
   if(NOT WITH_SOURCE_TREE STREQUAL "no")
   message("* Show source tree                : Yes - \"${WITH_SOURCE_TREE}\"")

@@ -708,8 +708,10 @@ GraveyardStruct const* BattlegroundAB::GetClosestGraveyardForBot(Creature* bot) 
 void BattlegroundAB::RewardKillScore(TeamId teamId, uint32 amount)
 {
     // Score feature
-    // Ornfelt AB score
+#ifdef USE_CUSTOM_CHANGES
+    // AB score
     //m_TeamScores[teamId] += amount + 20;
+#endif
     m_TeamScores[teamId] += amount;
     if (m_TeamScores[teamId] > BG_AB_MAX_TEAM_SCORE)
         m_TeamScores[teamId] = BG_AB_MAX_TEAM_SCORE;
@@ -724,7 +726,11 @@ void BattlegroundAB::HandleBotKillPlayer(Creature* killer, Player* victim)
         return;
 
     Battleground::HandleBotKillPlayer(killer, victim);
+#ifdef USE_CUSTOM_CHANGES
     //RewardKillScore(GetBotTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
+#else
+    //RewardKillScore(GetPlayerTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
+#endif
 }
 void BattlegroundAB::HandleBotKillBot(Creature* killer, Creature* victim)
 {
@@ -732,7 +738,11 @@ void BattlegroundAB::HandleBotKillBot(Creature* killer, Creature* victim)
         return;
 
     Battleground::HandleBotKillBot(killer, victim);
+#ifdef USE_CUSTOM_CHANGES
     //RewardKillScore(GetBotTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
+#else
+    //RewardKillScore(GetPlayerTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
+#endif
 }
 void BattlegroundAB::HandlePlayerKillBot(Creature* victim, Player* killer)
 {
@@ -740,7 +750,11 @@ void BattlegroundAB::HandlePlayerKillBot(Creature* victim, Player* killer)
         return;
 
     Battleground::HandlePlayerKillBot(victim, killer);
+#ifdef USE_CUSTOM_CHANGES
     //RewardKillScore(killer->GetTeamId(), BG_AB_TickPoints[1]);
+#else
+    //RewardKillScore(GetPlayerTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
+#endif
 }
 //end npcbot
 

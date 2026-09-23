@@ -635,9 +635,13 @@ void BotMgr::_teleportBot(Creature* bot, Map* newMap, float x, float y, float z,
             botai->SetIsDuringTeleport(false);
             botai->ResetContestedPvP();
 
-            // Ornfelt: Arena
+#ifdef USE_CUSTOM_CHANGES
+            // Arena
             //if (newMap->IsBattleground())
             if (newMap->IsBattlegroundOrArena())
+#else
+            if (newMap->IsBattleground())
+#endif
             {
                 Battleground* bg = botai->GetBG();
                 if (!bg)

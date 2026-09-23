@@ -1689,10 +1689,12 @@ bool Battleground::UpdatePlayerScore(Player* player, uint32 type, uint32 value, 
     else
         itr->second->UpdateScore(type, value);
 
-    // Ornfelt: player score:
+#ifdef USE_CUSTOM_CHANGES
+    // player score:
     //if (type == SCORE_KILLING_BLOWS)
     //	LOG_INFO("server.loading", "NEW PLAYER KILL!");
 
+#endif
     return true;
 }
 
@@ -1704,11 +1706,13 @@ bool Battleground::UpdateBotScore(Creature const* bot, uint32 type, uint32 value
         return false;
 
     itr->second->UpdateScore(type, value);
+#ifdef USE_CUSTOM_CHANGES
 
-    // Ornfelt: player score:
+    // player score:
     //if (type == SCORE_KILLING_BLOWS)
     //	LOG_INFO("server.loading", "NEW BOT KILL!");
 
+#endif
     return true;
 }
 //end npcbot

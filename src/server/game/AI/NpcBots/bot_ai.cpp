@@ -451,9 +451,11 @@ void bot_ai::ResetBotAI(uint8 resetType)
     _botCommandState = 0;
     _botAwaitState = BOT_AWAIT_NONE;
     _reviveTimer = 0;
-    // Ornfelt: stuckTimer
+#ifdef USE_CUSTOM_CHANGES
+    // stuckTimer
     _stuckTimer = urand(3600000, 3700000); // Reset to ~1 Hour
     stuckWpId = 0;
+#endif
 
     if (resetType & BOTAI_RESET_MASK_RESET_MASTER)
         master = reinterpret_cast<Player*>(me);
@@ -2166,8 +2168,12 @@ void bot_ai::SetStats(bool force)
             if (me->GetMap()->IsBattlegroundOrArena())
                 BOT_LOG_DEBUG("npcbots", "BG bot {} id {} selected level {}...", me->GetName().c_str(), me->GetEntry(), uint32(_baseLevel));
             else
+#ifdef USE_CUSTOM_CHANGES
                 //BOT_LOG_DEBUG("npcbots", "Wandering bot {} id {} selected level {}...", me->GetName().c_str(), me->GetEntry(), uint32(_baseLevel));
                 BOT_LOG_INFO("npcbots", "Wandering bot {} id {} selected level {}...", me->GetName().c_str(), me->GetEntry(), uint32(_baseLevel));
+#else
+                BOT_LOG_DEBUG("npcbots", "Wandering bot {} id {} selected level {}...", me->GetName().c_str(), me->GetEntry(), uint32(_baseLevel));
+#endif
         }
         else if (me->GetMap()->GetEntry()->IsContinent())
         {
@@ -2175,9 +2181,11 @@ void bot_ai::SetStats(bool force)
             mapmaxlevel += BotDataMgr::GetLevelBonusForBotRank(me->GetCreatureTemplate()->rank);
             //TODO: experience system for levelups
             mylevel = std::max<uint8>(mylevel, std::min<uint8>(_baseLevel + uint8(uint32(float(_killsCount) * BotCfg::GetBotWandererXPGainMod()) / (mylevel * 20)), mapmaxlevel));
-            // Ornfelt: Change wander bot level (if too low, the poor bots will spawn at high-lvl locations unless changed in botdatamgr)
+#ifdef USE_CUSTOM_CHANGES
+            // Change wander bot level (if too low, the poor bots will spawn at high-lvl locations unless changed in botdatamgr)
             //if (urand(1, 100) <= 40)
             //    mylevel = 80;
+#endif
         }
     }
     else
@@ -2196,7 +2204,8 @@ void bot_ai::SetStats(bool force)
 
         me->SetLevel(mylevel);
         force = true; //reinit spells/passives/other
-        // Ornfelt: don't level up, but log the "Dings"
+#ifdef USE_CUSTOM_CHANGES
+        // don't level up, but log the "Dings"
         if (_killsCount > 0)
         {
             LOG_INFO("server.loading", "BOT DING!!! Bot: {}, prevlevel: {}, mylevel: {}, _killsCount: {}", me->GetEntry(), me->GetLevel(), mylevel, _killsCount);
@@ -2216,6 +2225,7 @@ void bot_ai::SetStats(bool force)
             me->SetLevel(mylevel);
             force = true; //reinit spells/passives/other
         }
+#endif
     }
     if (force)
     {
@@ -3675,10 +3685,12 @@ bool bot_ai::CanBotAttack(Unit const* target, int8 byspell, bool secondary) cons
             case 4952: case 17578: case 24792: case 30527: case 31143: case 31144: case 31146: // training dummy
             case 32541: case 32542: case 32543: case 32545: case 32546: case 32547: case 32666: case 32667: // training dummy
             case 7668: case 7669: case 7670: case 7671: // Blasted Lands servants
+#ifdef USE_CUSTOM_CHANGES
             case 21419: case 21736: case 21749: // Infernal attacker, Wildhammer defender, Shadowmoon scout
             case 20290: case 26582: case 26583: // Lagoon eel, Horrified Drakkari trolls
             case 25748: case 25817: case 27290: // Oil-covered hawk, Oiled fledgeling, Hungering dead
             case 29618: case 24747: case 23693: // Snowblind follower, Fjord hawk, Duskwing eagle
+#endif
                 return false;
             case 21416: case 21709: case 21710: case 21711: // Shadowmoon Valley Broken element corruptors
                 if (target->HasAuraTypeWithMiscvalue(SPELL_AURA_SCHOOL_IMMUNITY, 127))
@@ -5859,9 +5871,13 @@ uint32 bot_ai::_selectMountSpell() const
     {
         using MountArray = std::array<uint32, NUM_MOUNTS_PER_SPEED>;
 
-        // Ornfelt: wanderer's cant fly
+#ifdef USE_CUSTOM_CHANGES
+        // wanderer's cant fly
         //bool can_fly = !IAmFree() && master_can_fly; //(!instt && me->GetMap()->GetEntry()->addon > 0);
         bool can_fly = !IAmFree() ? master_can_fly : false; //(!instt && me->GetMap()->GetEntry()->addon > 0);
+#else
+        bool can_fly = !IAmFree() && master_can_fly; //(!instt && me->GetMap()->GetEntry()->addon > 0);
+#endif
         bool useSlowMount = can_fly ? (me->GetLevel() < 70 || maxMountSpeed < 220) : (me->GetLevel() < minLevel100 || maxMountSpeed < 80);
 
         if (!can_fly)
@@ -15910,28 +15926,40 @@ void bot_ai::JustDied(Unit* u)
     else if (Group* gr = GetGroup())
         gr->SendUpdate();
 
-    // Ornfelt: don't tele to graveyard if arena
+#ifdef USE_CUSTOM_CHANGES
+    // don't tele to graveyard if arena
     //if (IsWanderer() && me->GetMap()->IsBattleground()) // Not needed
+#endif
     if (IsWanderer() && me->GetMap()->IsBattlegroundOrArena())
     {
+#ifdef USE_CUSTOM_CHANGES
         //if (Battleground const* bg = GetBG())
         if (Battleground* bg = GetBG())
+#else
+        if (Battleground const* bg = GetBG())
+#endif
         {
             if (GraveyardStruct const* gy = bg->GetClosestGraveyardForBot(me))
             {
                 Position pos(gy->x, gy->y, gy->z, me->GetOrientation());
                 Events.AddEventAtOffset([me = me, pos = pos]() { BotMgr::TeleportBot(me, me->GetMap(), &pos, true); }, 5s);
             }
+#ifdef USE_CUSTOM_CHANGES
 
-            // Ornfelt: check win condition (seems to be required if bot gets killed by unit other than bot / player)
+            // check win condition (seems to be required if bot gets killed by unit other than bot / player)
             if (bg->isArena())
                 bg->CheckWinConditions();
+#endif
         }
     }
     else if (u && (u->IsPvP() || u->IsControlledByPlayer() || u->IsNPCBotOrPet()))
     {
+#ifdef USE_CUSTOM_CHANGES
         //BOT_LOG_DEBUG("npcbots", "{} {} id {} class {} level {} WAS KILLED BY {} {} id {} class {} level {} on their way to {}!",
         BOT_LOG_INFO("npcbots", "{} {} id {} class {} level {} WAS KILLED BY {} {} id {} class {} level {} on their way to {}!",
+#else
+        BOT_LOG_DEBUG("npcbots", "{} {} id {} class {} level {} WAS KILLED BY {} {} id {} class {} level {} on their way to {}!",
+#endif
             IsWanderer() ? "Wandering bot" : "Bot", me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
             (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
             u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
@@ -15984,8 +16012,12 @@ void bot_ai::KilledUnit(Unit* u)
         {
             if (IsWanderer())
             {
+#ifdef USE_CUSTOM_CHANGES
                 //BOT_LOG_DEBUG("npcbots", "Wandering bot {} id {} class {} level {} KILLED {} {} id {} class {} level {} on their way to {}!",
                 BOT_LOG_INFO("npcbots", "Wandering bot {} id {} class {} level {} KILLED {} {} id {} class {} level {} on their way to {}!",
+#else
+                BOT_LOG_DEBUG("npcbots", "Wandering bot {} id {} class {} level {} KILLED {} {} id {} class {} level {} on their way to {}!",
+#endif
                     me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
                     (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
                     u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
@@ -15993,8 +16025,12 @@ void bot_ai::KilledUnit(Unit* u)
             }
             else if (u->IsNPCBot() && u->ToCreature()->GetBotAI()->IsWanderer())
             {
+#ifdef USE_CUSTOM_CHANGES
                 //BOT_LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} KILLED wandering bot {} id {} class {} level {} on their way to {}!",
                 BOT_LOG_INFO("npcbots", "Bot {} id {} class {} level {} KILLED wandering bot {} id {} class {} level {} on their way to {}!",
+#else
+                BOT_LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} KILLED wandering bot {} id {} class {} level {} on their way to {}!",
+#endif
                     me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
                     u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
                     IsWanderer() ? _travel_node_cur->GetName().c_str() : "''");
@@ -16003,9 +16039,13 @@ void bot_ai::KilledUnit(Unit* u)
     }
 
     //handle BG kill BvP, BvB, BvC
-    // Ornfelt: Fix arena
+#ifdef USE_CUSTOM_CHANGES
+    // Fix arena
     //if (me->GetMap()->IsBattleground())
     if (me->GetMap()->IsBattlegroundOrArena())
+#else
+    if (me->GetMap()->IsBattleground())
+#endif
     {
         Battleground* bg = GetBG();
         //could be removed from BG
@@ -18574,7 +18614,8 @@ void bot_ai::CommonTimers(uint32 diff)
             _rentTimer += diff;
     }
 
-    // Ornfelt: stucktimer
+#ifdef USE_CUSTOM_CHANGES
+    // stucktimer
     if (IsWanderer()) {
         if (!stuckWpId)
             stuckWpId = 0;
@@ -18594,6 +18635,7 @@ void bot_ai::CommonTimers(uint32 diff)
         }
     }
 
+#endif
     if (me->IsInWorld())
     {
         if (_wmoAreaUpdateTimer > diff) _wmoAreaUpdateTimer -= diff;
@@ -18629,9 +18671,13 @@ void bot_ai::CommonTimers(uint32 diff)
 
 void bot_ai::UpdateReviveTimer(uint32 diff)
 {
-    // Ornfelt: Don't revive bots in arena
+#ifdef USE_CUSTOM_CHANGES
+    // Don't revive bots in arena
     //if (me->IsAlive())
     if (me->IsAlive() || me->GetMap()->IsBattleArena())
+#else
+    if (me->IsAlive())
+#endif
         return;
 
     if (_reviveTimer > diff)        _reviveTimer -= diff;
@@ -18719,16 +18765,23 @@ void bot_ai::Evade()
 
     if (IsWanderer())
     {
-        // Ornfelt: fix blade's edge
+#ifdef USE_CUSTOM_CHANGES
+        // fix blade's edge
         uint32 curr_zone, curr_area;
         me->GetZoneAndAreaId(curr_zone, curr_area);
 
+#endif
         if (mapid != me->GetMap()->GetId() || _evadeCount >= 50 || me->GetExactDist2d(pos) > MAX_WANDER_NODE_DISTANCE ||
+#ifdef USE_CUSTOM_CHANGES
             //me->GetPositionZ() <= INVALID_HEIGHT || (me->GetExactDist2d(pos) < 20.0f && me->GetExactDist(pos) > 100.0f))
             me->GetPositionZ() <= INVALID_HEIGHT || (me->GetExactDist2d(pos) < 20.0f && me->GetExactDist(pos) > 100.0f)
-            // Ornfelt: fix blade's edge
+            // fix blade's edge
             || (curr_zone == 3522 && me->GetPositionZ() > 290))
+#else
+            me->GetPositionZ() <= INVALID_HEIGHT || (me->GetExactDist2d(pos) < 20.0f && me->GetExactDist(pos) > 100.0f))
+#endif
         {
+#ifdef USE_CUSTOM_CHANGES
             //BOT_LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} map {} TELEPORTING to node {} ('{}') map {}, {}, dist {} yd!",
             //    me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), me->GetMapId(), _travel_node_cur->GetWPId(),
             //    _travel_node_cur->GetName().c_str(), uint32(mapid), pos.ToString().c_str(), me->GetExactDist(pos));
@@ -18747,6 +18800,11 @@ void bot_ai::Evade()
                     me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), me->GetMapId(), _travel_node_cur->GetWPId(),
                     _travel_node_cur->GetName().c_str(), uint32(mapid), pos.ToString().c_str(), me->GetExactDist(pos));
             }
+#else
+            BOT_LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} map {} TELEPORTING to node {} ('{}') map {}, {}, dist {} yd!",
+                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), me->GetMapId(), _travel_node_cur->GetWPId(),
+                _travel_node_cur->GetName().c_str(), uint32(mapid), pos.ToString().c_str(), me->GetExactDist(pos));
+#endif
 
             evadeDelayTimer = 12000;
             me->CastSpell(me, WANDERER_HEARTHSTONE);
@@ -18826,8 +18884,9 @@ void bot_ai::Evade()
                 OnWanderNodeReached();
 
                 WanderNode const* nextNode = GetNextTravelNode(&pos, false);
+#ifdef USE_CUSTOM_CHANGES
 
-                // Ornfelt: Write position to file. Requires:
+                // Write position to file. Requires:
                 //#include <fstream>
                 //std::ofstream outfile;
                 //std::string wander_nodes_file = "./wander_nodes_data/" + std::to_string(me->GetEntry()) + "_pos.txt";
@@ -18842,6 +18901,7 @@ void bot_ai::Evade()
                             me->GetLevel(),me->GetGender(),me->GetPositionX(),me->GetPositionY(),me->GetMapId(),me->GetZoneId(),me->GetEntry());
 
 
+#endif
                 if (!nextNode)
                 {
                     BOT_LOG_FATAL("npcbots", "Bot {} ({}) is unable to get next travel node! cur {}, last {}, position: {}. BOT WAS DISABLED",
@@ -20520,7 +20580,8 @@ void bot_ai::OnBotEnterBattleground()
             }
         });
 
-        // Ornfelt: Remove arena_prep since otherwise npcbots will be invisible until it's removed
+#ifdef USE_CUSTOM_CHANGES
+        // Remove arena_prep since otherwise npcbots will be invisible until it's removed
         if (bg->isArena())
         {
             //me->CastSpell(me, SPELL_ARENA_PREPARATION, true);
@@ -20530,6 +20591,7 @@ void bot_ai::OnBotEnterBattleground()
                         player->RemoveAurasDueToSpell(SPELL_ARENA_PREPARATION);
         }
 
+#endif
         SetBotCommandState(BOT_COMMAND_STAY);
         if (startNode)
         {

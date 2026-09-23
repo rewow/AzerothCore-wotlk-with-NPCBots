@@ -29,12 +29,14 @@
 #include "WorldStateDefines.h"
 #include "WorldStatePackets.h"
 
-// Ornfelt: npcbot
+#ifdef USE_CUSTOM_CHANGES
+// npcbot
 #include "bot_ai.h"
 #include "botdatamgr.h"
 #include "botmgr.h"
 //end npcbot
 
+#endif
 void ArenaScore::AppendToPacket(WorldPacket& data)
 {
     data << PlayerGuid;
@@ -146,6 +148,7 @@ void Arena::AddPlayer(Player* player)
 }
 
 //npcbot
+#ifdef USE_CUSTOM_CHANGES
 //void Arena::AddBot(Creature* bot)
 //{
 //    ASSERT(bot->IsNPCBot() && !bot->IsFreeBot());
@@ -163,7 +166,7 @@ void Arena::AddPlayer(Player* player)
 //}
 //end npcbot
 
-// Ornfelt: npcbot
+// npcbot
 void Arena::AddBot(Creature* bot)
 {
     ObjectGuid guid = bot->GetGUID();
@@ -189,6 +192,24 @@ void Arena::AddBot(Creature* bot)
 
     UpdateArenaWorldState();
 }
+#else
+void Arena::AddBot(Creature* bot)
+{
+    ASSERT(bot->IsNPCBot() && !bot->IsFreeBot());
+
+    bool const isInBattleground = IsPlayerInBattleground(bot->GetGUID());
+    Battleground::AddBot(bot);
+    TeamId botteamid = bot->GetBotOwner()->GetBgTeamId();
+
+    if (!isInBattleground)
+        BotScores[bot->GetEntry()] = new ArenaScore(bot->GetGUID(), botteamid);
+
+    //No flags - handled by AI
+
+    UpdateArenaWorldState();
+}
+//end npcbot
+#endif
 
 void Arena::RemovePlayer(Player* /*player*/)
 {

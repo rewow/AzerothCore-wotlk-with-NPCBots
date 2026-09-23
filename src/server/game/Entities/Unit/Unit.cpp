@@ -1763,7 +1763,8 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
             break;
     }
 
-    // Ornfelt: Buff spells
+#ifdef USE_CUSTOM_CHANGES
+    // Buff spells
     // Buff lava burst
     if (spellInfo->Id == 60043)
         damage *= 2;
@@ -1780,6 +1781,7 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
     else if (spellInfo->Id == 44425)
         damage *= 100;
 
+#endif
     damageInfo->cleanDamage = std::max(0, cleanDamage);
     damageInfo->damage = std::max(0, damage);
 
@@ -4572,12 +4574,16 @@ bool Unit::IsUnderWater() const
 
 void Unit::DeMorph()
 {
-    // Ornfelt: demorph
+#ifdef USE_CUSTOM_CHANGES
+    // demorph
+#endif
     SetDisplayId(GetNativeDisplayId());
+#ifdef USE_CUSTOM_CHANGES
     //SetNativeDisplayId(GetNativeDisplayId());
 
     //SetDisplayId(demorphId);
     //SetNativeDisplayId(demorphId);
+#endif
 }
 
 int32 Unit::GetHighestExclusiveSameEffectSpellGroupValue(AuraEffect const* aurEff, AuraType auraType, bool checkMiscValue /*= false*/, int32 miscValue /*= 0*/) const

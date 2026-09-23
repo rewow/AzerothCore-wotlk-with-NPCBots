@@ -730,10 +730,12 @@ private:
     uint32 _saveDisabledSpellsTimer{};
     uint32 _saveMiscValuesTimer{};
 
-    // Ornfelt: stucktimer
+#ifdef USE_CUSTOM_CHANGES
+    // stucktimer
     uint32 _stuckTimer;
     uint32 stuckWpId;
 
+#endif
     uint32 _lastZoneId{}, _lastAreaId{}, _lastWMOAreaId{};
     uint32 _selfrez_spell_id{};
 
