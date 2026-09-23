@@ -8,6 +8,18 @@ index b1c6e9f83..5f4409255 100644
  !/data/sql/custom/db_world/
 +
 +.cache/
+diff --git a/conf/dist/config.cmake b/conf/dist/config.cmake
+index e2f24fc6c..7e730d644 100644
+--- a/conf/dist/config.cmake
++++ b/conf/dist/config.cmake
+@@ -108,6 +108,7 @@ option(WITHOUT_METRICS     "Disable metrics reporting (i.e. InfluxDB and Grafana
+ option(WITH_DETAILED_METRICS  "Enable detailed metrics reporting (i.e. time each session takes to update)" 0)
+ option(TOOL_CONFIG_MERGER     "Install the Python config merger tool alongside config files" 0)
+ option(USE_REAL_LIBSIDECAR "Use real libsidecar and expect that compiled shared lib is in deps/libsidecar folder." 0)
++option(USE_CUSTOM_CHANGES  "Enable custom changes to the core"                           1)
+ 
+ CheckApplicationsBuildList()
+ CheckToolsBuildList()
 diff --git a/data/sql/custom/db_world/2023_06_09_00_creature_template_npcbot_wander_nodes.sql b/data/sql/custom/db_world/2023_06_09_00_creature_template_npcbot_wander_nodes.sql
 index 725842fa3..6b3d10793 100644
 --- a/data/sql/custom/db_world/2023_06_09_00_creature_template_npcbot_wander_nodes.sql
@@ -6302,58 +6314,84 @@ index 725842fa3..6b3d10793 100644
 +UPDATE `creature_template_npcbot_wander_nodes` SET `links`='2507:0 3356:0 3357:0 ' WHERE (`id`='2506');
 +UPDATE `creature_template_npcbot_wander_nodes` SET `links`='3358:0 3359:0 2506:0 2508:0 ' WHERE (`id`='2507');
 +UPDATE `creature_template_npcbot_wander_nodes` SET `links`='2507:0 3360:0 3361:0 ' WHERE (`id`='2508');
+diff --git a/src/cmake/showoptions.cmake b/src/cmake/showoptions.cmake
+index a3c3da186..a59a07960 100644
+--- a/src/cmake/showoptions.cmake
++++ b/src/cmake/showoptions.cmake
+@@ -154,6 +154,13 @@ else()
+   message("* Enable vmap DisableMgr checks   : No")
+ endif()
+ 
++if( USE_CUSTOM_CHANGES )
++  message("* Use custom changes              : Yes (default)")
++  add_definitions(-DUSE_CUSTOM_CHANGES)
++else()
++  message("* Use custom changes              : No")
++endif()
++
+ if(WIN32)
+   if(NOT WITH_SOURCE_TREE STREQUAL "no")
+   message("* Show source tree                : Yes - \"${WITH_SOURCE_TREE}\"")
 diff --git a/src/server/database/Database/DatabaseWorkerPool.h b/src/server/database/Database/DatabaseWorkerPool.h
-index d9b418b1b..8ecf21ede 100644
+index d9b418b1b..ede9dfe38 100644
 --- a/src/server/database/Database/DatabaseWorkerPool.h
 +++ b/src/server/database/Database/DatabaseWorkerPool.h
-@@ -209,7 +209,7 @@ public:
+@@ -208,7 +208,7 @@ public:
+ 
      void WarnAboutSyncQueries([[maybe_unused]] bool warn)
      {
- #ifdef ACORE_DEBUG
--        _warnSyncQueries = warn;
-+        //_warnSyncQueries = warn;
+-#ifdef ACORE_DEBUG
++#if defined(ACORE_DEBUG) && !defined(USE_CUSTOM_CHANGES)
+         _warnSyncQueries = warn;
  #endif
      }
- 
 diff --git a/src/server/game/AI/NpcBots/bot_ai.cpp b/src/server/game/AI/NpcBots/bot_ai.cpp
-index 5490b0050..dcbef1709 100644
+index 5490b0050..996c9573e 100644
 --- a/src/server/game/AI/NpcBots/bot_ai.cpp
 +++ b/src/server/game/AI/NpcBots/bot_ai.cpp
-@@ -451,6 +451,9 @@ void bot_ai::ResetBotAI(uint8 resetType)
+@@ -451,6 +451,11 @@ void bot_ai::ResetBotAI(uint8 resetType)
      _botCommandState = 0;
      _botAwaitState = BOT_AWAIT_NONE;
      _reviveTimer = 0;
-+    // Ornfelt: stuckTimer
++#ifdef USE_CUSTOM_CHANGES
++    // stuckTimer
 +    _stuckTimer = urand(3600000, 3700000); // Reset to ~1 Hour
 +    stuckWpId = 0;
++#endif
  
      if (resetType & BOTAI_RESET_MASK_RESET_MASTER)
          master = reinterpret_cast<Player*>(me);
-@@ -2163,7 +2166,8 @@ void bot_ai::SetStats(bool force)
+@@ -2163,7 +2168,12 @@ void bot_ai::SetStats(bool force)
              if (me->GetMap()->IsBattlegroundOrArena())
                  BOT_LOG_DEBUG("npcbots", "BG bot {} id {} selected level {}...", me->GetName().c_str(), me->GetEntry(), uint32(_baseLevel));
              else
--                BOT_LOG_DEBUG("npcbots", "Wandering bot {} id {} selected level {}...", me->GetName().c_str(), me->GetEntry(), uint32(_baseLevel));
++#ifdef USE_CUSTOM_CHANGES
 +                //BOT_LOG_DEBUG("npcbots", "Wandering bot {} id {} selected level {}...", me->GetName().c_str(), me->GetEntry(), uint32(_baseLevel));
 +                BOT_LOG_INFO("npcbots", "Wandering bot {} id {} selected level {}...", me->GetName().c_str(), me->GetEntry(), uint32(_baseLevel));
++#else
+                 BOT_LOG_DEBUG("npcbots", "Wandering bot {} id {} selected level {}...", me->GetName().c_str(), me->GetEntry(), uint32(_baseLevel));
++#endif
          }
          else if (me->GetMap()->GetEntry()->IsContinent())
          {
-@@ -2171,6 +2175,9 @@ void bot_ai::SetStats(bool force)
+@@ -2171,6 +2181,11 @@ void bot_ai::SetStats(bool force)
              mapmaxlevel += BotDataMgr::GetLevelBonusForBotRank(me->GetCreatureTemplate()->rank);
              //TODO: experience system for levelups
              mylevel = std::max<uint8>(mylevel, std::min<uint8>(_baseLevel + uint8(uint32(float(_killsCount) * BotCfg::GetBotWandererXPGainMod()) / (mylevel * 20)), mapmaxlevel));
-+            // Ornfelt: Change wander bot level (if too low, the poor bots will spawn at high-lvl locations unless changed in botdatamgr)
++#ifdef USE_CUSTOM_CHANGES
++            // Change wander bot level (if too low, the poor bots will spawn at high-lvl locations unless changed in botdatamgr)
 +            //if (urand(1, 100) <= 40)
 +            //    mylevel = 80;
++#endif
          }
      }
      else
-@@ -2189,6 +2196,26 @@ void bot_ai::SetStats(bool force)
+@@ -2189,6 +2204,28 @@ void bot_ai::SetStats(bool force)
  
          me->SetLevel(mylevel);
          force = true; //reinit spells/passives/other
-+        // Ornfelt: don't level up, but log the "Dings"
++#ifdef USE_CUSTOM_CHANGES
++        // don't level up, but log the "Dings"
 +        if (_killsCount > 0)
 +        {
 +            LOG_INFO("server.loading", "BOT DING!!! Bot: {}, prevlevel: {}, mylevel: {}, _killsCount: {}", me->GetEntry(), me->GetLevel(), mylevel, _killsCount);
@@ -6373,98 +6411,124 @@ index 5490b0050..dcbef1709 100644
 +            me->SetLevel(mylevel);
 +            force = true; //reinit spells/passives/other
 +        }
++#endif
      }
      if (force)
      {
-@@ -3648,6 +3675,10 @@ bool bot_ai::CanBotAttack(Unit const* target, int8 byspell, bool secondary) cons
+@@ -3648,6 +3685,12 @@ bool bot_ai::CanBotAttack(Unit const* target, int8 byspell, bool secondary) cons
              case 4952: case 17578: case 24792: case 30527: case 31143: case 31144: case 31146: // training dummy
              case 32541: case 32542: case 32543: case 32545: case 32546: case 32547: case 32666: case 32667: // training dummy
              case 7668: case 7669: case 7670: case 7671: // Blasted Lands servants
++#ifdef USE_CUSTOM_CHANGES
 +            case 21419: case 21736: case 21749: // Infernal attacker, Wildhammer defender, Shadowmoon scout
 +            case 20290: case 26582: case 26583: // Lagoon eel, Horrified Drakkari trolls
 +            case 25748: case 25817: case 27290: // Oil-covered hawk, Oiled fledgeling, Hungering dead
 +            case 29618: case 24747: case 23693: // Snowblind follower, Fjord hawk, Duskwing eagle
++#endif
                  return false;
              case 21416: case 21709: case 21710: case 21711: // Shadowmoon Valley Broken element corruptors
                  if (target->HasAuraTypeWithMiscvalue(SPELL_AURA_SCHOOL_IMMUNITY, 127))
-@@ -5828,7 +5859,9 @@ uint32 bot_ai::_selectMountSpell() const
+@@ -5828,7 +5871,13 @@ uint32 bot_ai::_selectMountSpell() const
      {
          using MountArray = std::array<uint32, NUM_MOUNTS_PER_SPEED>;
  
--        bool can_fly = !IAmFree() && master_can_fly; //(!instt && me->GetMap()->GetEntry()->addon > 0);
-+        // Ornfelt: wanderer's cant fly
++#ifdef USE_CUSTOM_CHANGES
++        // wanderer's cant fly
 +        //bool can_fly = !IAmFree() && master_can_fly; //(!instt && me->GetMap()->GetEntry()->addon > 0);
 +        bool can_fly = !IAmFree() ? master_can_fly : false; //(!instt && me->GetMap()->GetEntry()->addon > 0);
++#else
+         bool can_fly = !IAmFree() && master_can_fly; //(!instt && me->GetMap()->GetEntry()->addon > 0);
++#endif
          bool useSlowMount = can_fly ? (me->GetLevel() < 70 || maxMountSpeed < 220) : (me->GetLevel() < minLevel100 || maxMountSpeed < 80);
  
          if (!can_fly)
-@@ -15877,20 +15910,28 @@ void bot_ai::JustDied(Unit* u)
+@@ -15877,20 +15926,40 @@ void bot_ai::JustDied(Unit* u)
      else if (Group* gr = GetGroup())
          gr->SendUpdate();
  
-+    // Ornfelt: don't tele to graveyard if arena
++#ifdef USE_CUSTOM_CHANGES
++    // don't tele to graveyard if arena
 +    //if (IsWanderer() && me->GetMap()->IsBattleground()) // Not needed
++#endif
      if (IsWanderer() && me->GetMap()->IsBattlegroundOrArena())
      {
--        if (Battleground const* bg = GetBG())
++#ifdef USE_CUSTOM_CHANGES
 +        //if (Battleground const* bg = GetBG())
 +        if (Battleground* bg = GetBG())
++#else
+         if (Battleground const* bg = GetBG())
++#endif
          {
              if (GraveyardStruct const* gy = bg->GetClosestGraveyardForBot(me))
              {
                  Position pos(gy->x, gy->y, gy->z, me->GetOrientation());
                  Events.AddEventAtOffset([me = me, pos = pos]() { BotMgr::TeleportBot(me, me->GetMap(), &pos, true); }, 5s);
              }
++#ifdef USE_CUSTOM_CHANGES
 +
-+            // Ornfelt: check win condition (seems to be required if bot gets killed by unit other than bot / player)
++            // check win condition (seems to be required if bot gets killed by unit other than bot / player)
 +            if (bg->isArena())
 +                bg->CheckWinConditions();
++#endif
          }
      }
      else if (u && (u->IsPvP() || u->IsControlledByPlayer() || u->IsNPCBotOrPet()))
      {
--        BOT_LOG_DEBUG("npcbots", "{} {} id {} class {} level {} WAS KILLED BY {} {} id {} class {} level {} on their way to {}!",
++#ifdef USE_CUSTOM_CHANGES
 +        //BOT_LOG_DEBUG("npcbots", "{} {} id {} class {} level {} WAS KILLED BY {} {} id {} class {} level {} on their way to {}!",
 +        BOT_LOG_INFO("npcbots", "{} {} id {} class {} level {} WAS KILLED BY {} {} id {} class {} level {} on their way to {}!",
++#else
+         BOT_LOG_DEBUG("npcbots", "{} {} id {} class {} level {} WAS KILLED BY {} {} id {} class {} level {} on their way to {}!",
++#endif
              IsWanderer() ? "Wandering bot" : "Bot", me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
              (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
              u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-@@ -15943,7 +15984,8 @@ void bot_ai::KilledUnit(Unit* u)
+@@ -15943,7 +16012,12 @@ void bot_ai::KilledUnit(Unit* u)
          {
              if (IsWanderer())
              {
--                BOT_LOG_DEBUG("npcbots", "Wandering bot {} id {} class {} level {} KILLED {} {} id {} class {} level {} on their way to {}!",
++#ifdef USE_CUSTOM_CHANGES
 +                //BOT_LOG_DEBUG("npcbots", "Wandering bot {} id {} class {} level {} KILLED {} {} id {} class {} level {} on their way to {}!",
 +                BOT_LOG_INFO("npcbots", "Wandering bot {} id {} class {} level {} KILLED {} {} id {} class {} level {} on their way to {}!",
++#else
+                 BOT_LOG_DEBUG("npcbots", "Wandering bot {} id {} class {} level {} KILLED {} {} id {} class {} level {} on their way to {}!",
++#endif
                      me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
                      (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
                      u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
-@@ -15951,7 +15993,8 @@ void bot_ai::KilledUnit(Unit* u)
+@@ -15951,7 +16025,12 @@ void bot_ai::KilledUnit(Unit* u)
              }
              else if (u->IsNPCBot() && u->ToCreature()->GetBotAI()->IsWanderer())
              {
--                BOT_LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} KILLED wandering bot {} id {} class {} level {} on their way to {}!",
++#ifdef USE_CUSTOM_CHANGES
 +                //BOT_LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} KILLED wandering bot {} id {} class {} level {} on their way to {}!",
 +                BOT_LOG_INFO("npcbots", "Bot {} id {} class {} level {} KILLED wandering bot {} id {} class {} level {} on their way to {}!",
++#else
+                 BOT_LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} KILLED wandering bot {} id {} class {} level {} on their way to {}!",
++#endif
                      me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
                      u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
                      IsWanderer() ? _travel_node_cur->GetName().c_str() : "''");
-@@ -15960,7 +16003,9 @@ void bot_ai::KilledUnit(Unit* u)
+@@ -15960,7 +16039,13 @@ void bot_ai::KilledUnit(Unit* u)
      }
  
      //handle BG kill BvP, BvB, BvC
--    if (me->GetMap()->IsBattleground())
-+    // Ornfelt: Fix arena
++#ifdef USE_CUSTOM_CHANGES
++    // Fix arena
 +    //if (me->GetMap()->IsBattleground())
 +    if (me->GetMap()->IsBattlegroundOrArena())
++#else
+     if (me->GetMap()->IsBattleground())
++#endif
      {
          Battleground* bg = GetBG();
          //could be removed from BG
-@@ -18529,6 +18574,26 @@ void bot_ai::CommonTimers(uint32 diff)
+@@ -18529,6 +18614,28 @@ void bot_ai::CommonTimers(uint32 diff)
              _rentTimer += diff;
      }
  
-+    // Ornfelt: stucktimer
++#ifdef USE_CUSTOM_CHANGES
++    // stucktimer
 +    if (IsWanderer()) {
 +        if (!stuckWpId)
 +            stuckWpId = 0;
@@ -6484,38 +6548,45 @@ index 5490b0050..dcbef1709 100644
 +        }
 +    }
 +
++#endif
      if (me->IsInWorld())
      {
          if (_wmoAreaUpdateTimer > diff) _wmoAreaUpdateTimer -= diff;
-@@ -18564,7 +18629,9 @@ void bot_ai::CommonTimers(uint32 diff)
+@@ -18564,7 +18671,13 @@ void bot_ai::CommonTimers(uint32 diff)
  
  void bot_ai::UpdateReviveTimer(uint32 diff)
  {
--    if (me->IsAlive())
-+    // Ornfelt: Don't revive bots in arena
++#ifdef USE_CUSTOM_CHANGES
++    // Don't revive bots in arena
 +    //if (me->IsAlive())
 +    if (me->IsAlive() || me->GetMap()->IsBattleArena())
++#else
+     if (me->IsAlive())
++#endif
          return;
  
      if (_reviveTimer > diff)        _reviveTimer -= diff;
-@@ -18652,12 +18719,34 @@ void bot_ai::Evade()
+@@ -18652,12 +18765,46 @@ void bot_ai::Evade()
  
      if (IsWanderer())
      {
-+        // Ornfelt: fix blade's edge
++#ifdef USE_CUSTOM_CHANGES
++        // fix blade's edge
 +        uint32 curr_zone, curr_area;
 +        me->GetZoneAndAreaId(curr_zone, curr_area);
 +
++#endif
          if (mapid != me->GetMap()->GetId() || _evadeCount >= 50 || me->GetExactDist2d(pos) > MAX_WANDER_NODE_DISTANCE ||
--            me->GetPositionZ() <= INVALID_HEIGHT || (me->GetExactDist2d(pos) < 20.0f && me->GetExactDist(pos) > 100.0f))
++#ifdef USE_CUSTOM_CHANGES
 +            //me->GetPositionZ() <= INVALID_HEIGHT || (me->GetExactDist2d(pos) < 20.0f && me->GetExactDist(pos) > 100.0f))
 +            me->GetPositionZ() <= INVALID_HEIGHT || (me->GetExactDist2d(pos) < 20.0f && me->GetExactDist(pos) > 100.0f)
-+            // Ornfelt: fix blade's edge
++            // fix blade's edge
 +            || (curr_zone == 3522 && me->GetPositionZ() > 290))
++#else
+             me->GetPositionZ() <= INVALID_HEIGHT || (me->GetExactDist2d(pos) < 20.0f && me->GetExactDist(pos) > 100.0f))
++#endif
          {
--            BOT_LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} map {} TELEPORTING to node {} ('{}') map {}, {}, dist {} yd!",
--                me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), me->GetMapId(), _travel_node_cur->GetWPId(),
--                _travel_node_cur->GetName().c_str(), uint32(mapid), pos.ToString().c_str(), me->GetExactDist(pos));
++#ifdef USE_CUSTOM_CHANGES
 +            //BOT_LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} map {} TELEPORTING to node {} ('{}') map {}, {}, dist {} yd!",
 +            //    me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), me->GetMapId(), _travel_node_cur->GetWPId(),
 +            //    _travel_node_cur->GetName().c_str(), uint32(mapid), pos.ToString().c_str(), me->GetExactDist(pos));
@@ -6534,15 +6605,21 @@ index 5490b0050..dcbef1709 100644
 +                    me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), me->GetMapId(), _travel_node_cur->GetWPId(),
 +                    _travel_node_cur->GetName().c_str(), uint32(mapid), pos.ToString().c_str(), me->GetExactDist(pos));
 +            }
++#else
+             BOT_LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} map {} TELEPORTING to node {} ('{}') map {}, {}, dist {} yd!",
+                 me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()), me->GetMapId(), _travel_node_cur->GetWPId(),
+                 _travel_node_cur->GetName().c_str(), uint32(mapid), pos.ToString().c_str(), me->GetExactDist(pos));
++#endif
  
              evadeDelayTimer = 12000;
              me->CastSpell(me, WANDERER_HEARTHSTONE);
-@@ -18737,6 +18826,22 @@ void bot_ai::Evade()
+@@ -18737,6 +18884,24 @@ void bot_ai::Evade()
                  OnWanderNodeReached();
  
                  WanderNode const* nextNode = GetNextTravelNode(&pos, false);
++#ifdef USE_CUSTOM_CHANGES
 +
-+                // Ornfelt: Write position to file. Requires:
++                // Write position to file. Requires:
 +                //#include <fstream>
 +                //std::ofstream outfile;
 +                //std::string wander_nodes_file = "./wander_nodes_data/" + std::to_string(me->GetEntry()) + "_pos.txt";
@@ -6557,14 +6634,16 @@ index 5490b0050..dcbef1709 100644
 +                            me->GetLevel(),me->GetGender(),me->GetPositionX(),me->GetPositionY(),me->GetMapId(),me->GetZoneId(),me->GetEntry());
 +
 +
++#endif
                  if (!nextNode)
                  {
                      BOT_LOG_FATAL("npcbots", "Bot {} ({}) is unable to get next travel node! cur {}, last {}, position: {}. BOT WAS DISABLED",
-@@ -20415,6 +20520,16 @@ void bot_ai::OnBotEnterBattleground()
+@@ -20415,6 +20580,18 @@ void bot_ai::OnBotEnterBattleground()
              }
          });
  
-+        // Ornfelt: Remove arena_prep since otherwise npcbots will be invisible until it's removed
++#ifdef USE_CUSTOM_CHANGES
++        // Remove arena_prep since otherwise npcbots will be invisible until it's removed
 +        if (bg->isArena())
 +        {
 +            //me->CastSpell(me, SPELL_ARENA_PREPARATION, true);
@@ -6574,48 +6653,55 @@ index 5490b0050..dcbef1709 100644
 +                        player->RemoveAurasDueToSpell(SPELL_ARENA_PREPARATION);
 +        }
 +
++#endif
          SetBotCommandState(BOT_COMMAND_STAY);
          if (startNode)
          {
 diff --git a/src/server/game/AI/NpcBots/bot_ai.h b/src/server/game/AI/NpcBots/bot_ai.h
-index 395bca825..e450a5255 100644
+index 395bca825..9d123c225 100644
 --- a/src/server/game/AI/NpcBots/bot_ai.h
 +++ b/src/server/game/AI/NpcBots/bot_ai.h
-@@ -730,6 +730,10 @@ private:
+@@ -730,6 +730,12 @@ private:
      uint32 _saveDisabledSpellsTimer{};
      uint32 _saveMiscValuesTimer{};
  
-+    // Ornfelt: stucktimer
++#ifdef USE_CUSTOM_CHANGES
++    // stucktimer
 +    uint32 _stuckTimer;
 +    uint32 stuckWpId;
 +
++#endif
      uint32 _lastZoneId{}, _lastAreaId{}, _lastWMOAreaId{};
      uint32 _selfrez_spell_id{};
  
 diff --git a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-index b6e263d23..9ec75f25f 100644
+index b6e263d23..fcb906da6 100644
 --- a/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
 +++ b/src/server/game/AI/NpcBots/bot_paladin_ai.cpp
-@@ -929,7 +929,9 @@ public:
+@@ -929,7 +929,13 @@ public:
              }
              else if (HasRole(BOT_ROLE_DPS))
              {
--                SEAL = WISDOM && HasRole(BOT_ROLE_HEAL) ? WISDOM : COMMAND ? COMMAND : RIGHT;
-+                // Ornfelt: Don't use seal of command (too strong in aoe imo)
++#ifdef USE_CUSTOM_CHANGES
++                // Don't use seal of command (too strong in aoe imo)
 +                //SEAL = WISDOM && HasRole(BOT_ROLE_HEAL) ? WISDOM : COMMAND ? COMMAND : RIGHT;
 +                SEAL = WISDOM && HasRole(BOT_ROLE_HEAL) ? WISDOM : COMMAND ? VENGEANCE : RIGHT;
++#else
+                 SEAL = WISDOM && HasRole(BOT_ROLE_HEAL) ? WISDOM : COMMAND ? COMMAND : RIGHT;
++#endif
              }
              else if (HasRole(BOT_ROLE_HEAL))
                  SEAL = WISDOM ? WISDOM : LIGHT ? LIGHT : RIGHT;
 diff --git a/src/server/game/AI/NpcBots/botdatamgr.cpp b/src/server/game/AI/NpcBots/botdatamgr.cpp
-index 8c8939712..f1fc87c9d 100644
+index 8c8939712..e83786fcf 100644
 --- a/src/server/game/AI/NpcBots/botdatamgr.cpp
 +++ b/src/server/game/AI/NpcBots/botdatamgr.cpp
-@@ -153,6 +153,18 @@ public:
+@@ -153,6 +153,20 @@ public:
              GroupQueueInfo const* my_gqi = qpm_citr != queue.m_QueuedPlayers.cend() ? qpm_citr->second : nullptr;
              Battleground* bg = my_gqi ? sBattlegroundMgr->GetBattleground(my_gqi->IsInvitedToBGInstanceGUID, _bgTypeId) : nullptr;
  
-+			// Ornfelt: Fix arena
++#ifdef USE_CUSTOM_CHANGES
++			// Fix arena
 +            if (!bg)
 +            {
 +                Player const* bgPlayer = ObjectAccessor::FindConnectedPlayer(_playerGUID);
@@ -6625,18 +6711,17 @@ index 8c8939712..f1fc87c9d 100644
 +                }
 +            }
 +
-+            // Ornfelt: Fix arena
++            // Fix arena
 +            //if (!bg->HasFreeSlots() && !bg->isArena()) // Not needed anymore
++#endif
              if (!bg || bg->GetPlayersCountByTeam(TEAM_ALLIANCE) + bg->GetPlayersCountByTeam(TEAM_HORDE) >= bg->GetMaxPlayersPerTeam() * 2)
              {
                  AbortAll();
-@@ -204,9 +216,25 @@ static void SpawnWandererBot(uint32 bot_id, WanderNode const* spawnLoc, NpcBotRe
+@@ -204,9 +218,31 @@ static void SpawnWandererBot(uint32 bot_id, WanderNode const* spawnLoc, NpcBotRe
      Map* map = sMapMgr->CreateBaseMap(spawnLoc->GetMapId());
      map->LoadGrid(spawnLoc->m_positionX, spawnLoc->m_positionY);
  
--    BOT_LOG_DEBUG("npcbots", "Spawning wandering bot: {} ({}) class {} race {} fac {}, location: mapId {} {} ({})",
--        bot_template.Name.c_str(), bot_id, uint32(bot_extras->bclass), uint32(bot_extras->race), bot_data->faction,
--        spawnLoc->GetMapId(), spawnLoc->ToString().c_str(), spawnLoc->GetName().c_str());
++#ifdef USE_CUSTOM_CHANGES
 +    if (map->GetEntry()->IsContinent())
 +        BOT_LOG_INFO("npcbots", "Spawning wandering bot: {} ({}) class {} race {} fac {}, location: mapId {} {} ({})",
 +            bot_template.Name.c_str(), bot_id, uint32(bot_extras->bclass), uint32(bot_extras->race), bot_data->faction,
@@ -6646,7 +6731,7 @@ index 8c8939712..f1fc87c9d 100644
 +            bot_template.Name.c_str(), bot_id, uint32(bot_extras->bclass), uint32(bot_extras->race), bot_data->faction,
 +            spawnLoc->GetMapId(), spawnLoc->ToString().c_str(), spawnLoc->GetName().c_str());
 +
-+    // Ornfelt: Write position to file. Requires:
++    // Write position to file. Requires:
 +    //#include <fstream>
 +    //std::ofstream outfile;
 +    //outfile.open("./wander_nodes_data/wander_nodes_all.txt", std::ios_base::app); // Append instead of overwrite
@@ -6656,35 +6741,46 @@ index 8c8939712..f1fc87c9d 100644
 +    if (map->GetEntry()->IsContinent())
 +        CharacterDatabase.DirectExecute("INSERT INTO characters_playermap(guid,account,name,class,race,level,gender,position_x,position_y,map,zone,extra_flags,online,taximask,innTriggerId) VALUES ({},1,\"{}\",{},{},{},{},{},{},{},{},64,1,'',1)",
 +                bot_id,bot_template.Name.c_str(),uint32(bot_extras->bclass),uint32(bot_extras->race),0,1,spawnLoc->m_positionX,spawnLoc->m_positionY,spawnLoc->GetMapId(),spawnLoc->GetZoneId());
++#else
+     BOT_LOG_DEBUG("npcbots", "Spawning wandering bot: {} ({}) class {} race {} fac {}, location: mapId {} {} ({})",
+         bot_template.Name.c_str(), bot_id, uint32(bot_extras->bclass), uint32(bot_extras->race), bot_data->faction,
+         spawnLoc->GetMapId(), spawnLoc->ToString().c_str(), spawnLoc->GetName().c_str());
++#endif
  
      Creature* bot = new Creature();
      if (!bot->LoadBotCreatureFromDB(0, map, true, true, bot_id, &spawnPos))
-@@ -411,6 +439,9 @@ private:
+@@ -411,6 +447,11 @@ private:
          ASSERT(!level_nodes.empty());
          WanderNode const* spawnLoc = Bcore::Containers::SelectRandomContainerElement(level_nodes);
  
-+        // Ornfelt: Change wander bot spawnloc
++#ifdef USE_CUSTOM_CHANGES
++        // Change wander bot spawnloc
 +        //WanderNode const* spawnLoc = level_nodes.at(0);
 +
++#endif
          CreatureTemplate& bot_template = _botsExtraCreatureTemplates[next_bot_id];
          //copy all fields
          bot_template = *orig_template;
-@@ -1970,7 +2001,9 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
+@@ -1970,7 +2011,13 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
  
      uint32 tarteamplayers = BotCfg::GetBGTargetTeamPlayersCount(bgTypeId);
  
--    if (tarteamplayers == 0)
-+    // Ornfelt: Arena
++#ifdef USE_CUSTOM_CHANGES
++    // Arena
 +    //if (tarteamplayers == 0)
 +    if (tarteamplayers == 0 && bgTypeId != 6)
++#else
+     if (tarteamplayers == 0)
++#endif
      {
          BOT_LOG_INFO("npcbots", "[Disabled] BG {} wandering bots generation is disabled (not implemented?)", uint32(bgTypeId));
          return true;
-@@ -2036,6 +2069,14 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
+@@ -2036,6 +2083,16 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
      uint32 needed_bots_count_a = (queued_players_a < tarteamplayers) ? (tarteamplayers - queued_players_a) : 0;
      uint32 needed_bots_count_h = (queued_players_h < tarteamplayers) ? (tarteamplayers - queued_players_h) : 0;
  
-+    // Ornfelt: Fix amount of bots in arena skirmish
++#ifdef USE_CUSTOM_CHANGES
++    // Fix amount of bots in arena skirmish
 +    if (bgTypeId == 6)
 +    {
 +        //avgteamplayers = atype;
@@ -6692,97 +6788,116 @@ index 8c8939712..f1fc87c9d 100644
 +        needed_bots_count_h = atype - queued_players_h;
 +    }
 +
++#endif
      ASSERT(needed_bots_count_a <= maxteamplayers);
      ASSERT(needed_bots_count_h <= maxteamplayers);
  
-@@ -2070,6 +2111,12 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
+@@ -2070,6 +2127,14 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
      std::array<NpcBotRegistry, 2> spawned_bots;
      auto& [spawned_bots_a, spawned_bots_h] = spawned_bots;
  
-+    // Ornfelt: bot balance
++#ifdef USE_CUSTOM_CHANGES
++    // bot balance
 +    //if (queued_players_a > 0)
 +    //	needed_bots_count_h -= 1;
 +    //else if (queued_players_h > 0)
 +    //	needed_bots_count_a -= 1;
 +
++#endif
      if (needed_bots_count_a)
      {
          if (!sBotGen->GenerateWanderingBotsToSpawn(needed_bots_count_a, bg_template->GetMapId(), ALLIANCE, true, bracketEntry, &spawned_bots_a, spawned_a))
-@@ -2082,6 +2129,8 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
+@@ -2082,6 +2147,10 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
                      DespawnWandererBot(bot->GetEntry());
              return false;
          }
-+        // Ornfelt: spawn log
++#ifdef USE_CUSTOM_CHANGES
++        // spawn log
 +        //LOG_INFO("server.loading", "Spawned {} alliance BG bots", std::to_string(needed_bots_count_a));
++#endif
      }
      if (needed_bots_count_h)
      {
-@@ -2095,10 +2144,13 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
+@@ -2095,10 +2164,20 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
                      DespawnWandererBot(bot->GetEntry());
              return false;
          }
-+        // Ornfelt: spawn log
++#ifdef USE_CUSTOM_CHANGES
++        // spawn log
 +        //LOG_INFO("server.loading", "Spawned {} horde BG bots", std::to_string(needed_bots_count_h));
++#endif
      }
  
--    ASSERT(uint32(spawned_bots_a.size()) == needed_bots_count_a);
--    ASSERT(uint32(spawned_bots_h.size()) == needed_bots_count_h);
-+    // Ornfelt: Remove assert
++#ifdef USE_CUSTOM_CHANGES
++    // Remove assert
 +    //ASSERT(uint32(spawned_bots_a.size()) == needed_bots_count_a);
 +    //ASSERT(uint32(spawned_bots_h.size()) == needed_bots_count_h);
++#else
+     ASSERT(uint32(spawned_bots_a.size()) == needed_bots_count_a);
+     ASSERT(uint32(spawned_bots_h.size()) == needed_bots_count_h);
++#endif
  
      botBGJoinEvents[groupLeader->GetGUID()].AddEventAtOffset([ammr = ammr, atype = atype, bgqTypeId = bgqTypeId, bgTypeId = bgTypeId, bracketId = bracketId]() {
          sBattlegroundMgr->ScheduleQueueUpdate(ammr, atype, bgqTypeId, bgTypeId, bracketId);
-@@ -2119,7 +2171,12 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
+@@ -2119,7 +2198,16 @@ bool BotDataMgr::GenerateBattlegroundBots(Player const* groupLeader, [[maybe_unu
              queue->AddBotAsGroup(bot->GetGUID(), GetTeamIdForFaction(bot->GetFaction()),
                  bgTypeId, bracketEntry, atype, false, gqinfo->ArenaTeamRating, ammr);
  
--            seconds_delay = std::min<uint32>(uint32(MINUTE * 2), seconds_delay + std::max<uint32>(1u, uint32((MINUTE / 2) / std::max<uint32>(needed_bots_count_a, needed_bots_count_h))));
++#ifdef USE_CUSTOM_CHANGES
 +            // seconds_delay = std::min<uint32>(uint32(MINUTE * 2), seconds_delay + std::max<uint32>(1u, uint32((MINUTE / 2) / std::max<uint32>(needed_bots_count_a, needed_bots_count_h))));
-+            // Ornfelt: Fix bots in arena queueing slowly...
++            // Fix bots in arena queueing slowly...
 +            if (bgTypeId == 6)
 +                seconds_delay += std::max<uint32>(1u, uint32((MINUTE / 4) / std::min<uint32>(needed_bots_count_a, needed_bots_count_h)));
 +            else
 +                seconds_delay = std::min<uint32>(uint32(MINUTE * 2), seconds_delay + std::max<uint32>(1u, uint32((MINUTE / 2) / std::max<uint32>(needed_bots_count_a, needed_bots_count_h))));
++#else
+             seconds_delay = std::min<uint32>(uint32(MINUTE * 2), seconds_delay + std::max<uint32>(1u, uint32((MINUTE / 2) / std::max<uint32>(needed_bots_count_a, needed_bots_count_h))));
++#endif
  
              BotBattlegroundEnterEvent* bbe = new BotBattlegroundEnterEvent(groupLeader->GetGUID(), bot->GetGUID(), bgqTypeId, bgTypeId,
                  botBGJoinEvents[groupLeader->GetGUID()].CalculateTime(Milliseconds(uint32(INVITE_ACCEPT_WAIT_TIME) + uint32(BG_START_DELAY_2M)).count()));
 diff --git a/src/server/game/AI/NpcBots/botmgr.cpp b/src/server/game/AI/NpcBots/botmgr.cpp
-index 64e540c44..0e94c87dd 100644
+index 64e540c44..c51d09fd2 100644
 --- a/src/server/game/AI/NpcBots/botmgr.cpp
 +++ b/src/server/game/AI/NpcBots/botmgr.cpp
-@@ -635,7 +635,9 @@ void BotMgr::_teleportBot(Creature* bot, Map* newMap, float x, float y, float z,
+@@ -635,7 +635,13 @@ void BotMgr::_teleportBot(Creature* bot, Map* newMap, float x, float y, float z,
              botai->SetIsDuringTeleport(false);
              botai->ResetContestedPvP();
  
--            if (newMap->IsBattleground())
-+            // Ornfelt: Arena
++#ifdef USE_CUSTOM_CHANGES
++            // Arena
 +            //if (newMap->IsBattleground())
 +            if (newMap->IsBattlegroundOrArena())
++#else
+             if (newMap->IsBattleground())
++#endif
              {
                  Battleground* bg = botai->GetBG();
                  if (!bg)
 diff --git a/src/server/game/Battlegrounds/Arena.cpp b/src/server/game/Battlegrounds/Arena.cpp
-index 4f0afedd2..d42302915 100644
+index 4f0afedd2..a3d92be7e 100644
 --- a/src/server/game/Battlegrounds/Arena.cpp
 +++ b/src/server/game/Battlegrounds/Arena.cpp
-@@ -29,6 +29,12 @@
+@@ -29,6 +29,14 @@
  #include "WorldStateDefines.h"
  #include "WorldStatePackets.h"
  
-+// Ornfelt: npcbot
++#ifdef USE_CUSTOM_CHANGES
++// npcbot
 +#include "bot_ai.h"
 +#include "botdatamgr.h"
 +#include "botmgr.h"
 +//end npcbot
 +
++#endif
  void ArenaScore::AppendToPacket(WorldPacket& data)
  {
      data << PlayerGuid;
-@@ -140,22 +146,49 @@ void Arena::AddPlayer(Player* player)
+@@ -140,6 +148,51 @@ void Arena::AddPlayer(Player* player)
  }
  
  //npcbot
++#ifdef USE_CUSTOM_CHANGES
 +//void Arena::AddBot(Creature* bot)
 +//{
 +//    ASSERT(bot->IsNPCBot() && !bot->IsFreeBot());
@@ -6800,22 +6915,15 @@ index 4f0afedd2..d42302915 100644
 +//}
 +//end npcbot
 +
-+// Ornfelt: npcbot
- void Arena::AddBot(Creature* bot)
- {
--    ASSERT(bot->IsNPCBot() && !bot->IsFreeBot());
++// npcbot
++void Arena::AddBot(Creature* bot)
++{
 +    ObjectGuid guid = bot->GetGUID();
 +    TeamId teamId = BotDataMgr::GetTeamIdForFaction(bot->GetFaction());
- 
--    bool const isInBattleground = IsPlayerInBattleground(bot->GetGUID());
-     Battleground::AddBot(bot);
--    TeamId botteamid = bot->GetBotOwner()->GetBgTeamId();
++
++    Battleground::AddBot(bot);
 +    PlayerScores.emplace(bot->GetGUID().GetCounter(), new ArenaScore(bot->GetGUID(), teamId));
- 
--    if (!isInBattleground)
--        BotScores[bot->GetEntry()] = new ArenaScore(bot->GetGUID(), botteamid);
--
--    //No flags - handled by AI
++
 +    if (teamId == TEAM_ALLIANCE) // gold
 +    {
 +        if (teamId == TEAM_HORDE)
@@ -6830,88 +6938,108 @@ index 4f0afedd2..d42302915 100644
 +        else
 +            bot->CastSpell(bot, SPELL_ALLIANCE_GREEN_FLAG, true);
 +    }
- 
++
++    UpdateArenaWorldState();
++}
++#else
+ void Arena::AddBot(Creature* bot)
+ {
+     ASSERT(bot->IsNPCBot() && !bot->IsFreeBot());
+@@ -156,6 +209,7 @@ void Arena::AddBot(Creature* bot)
      UpdateArenaWorldState();
  }
--//end npcbot
+ //end npcbot
++#endif
  
  void Arena::RemovePlayer(Player* /*player*/)
  {
 diff --git a/src/server/game/Battlegrounds/Battleground.cpp b/src/server/game/Battlegrounds/Battleground.cpp
-index 13860f4ab..f1eef26e5 100644
+index 13860f4ab..8d7fd906e 100644
 --- a/src/server/game/Battlegrounds/Battleground.cpp
 +++ b/src/server/game/Battlegrounds/Battleground.cpp
-@@ -1689,6 +1689,10 @@ bool Battleground::UpdatePlayerScore(Player* player, uint32 type, uint32 value,
+@@ -1689,6 +1689,12 @@ bool Battleground::UpdatePlayerScore(Player* player, uint32 type, uint32 value,
      else
          itr->second->UpdateScore(type, value);
  
-+    // Ornfelt: player score:
++#ifdef USE_CUSTOM_CHANGES
++    // player score:
 +    //if (type == SCORE_KILLING_BLOWS)
 +    //	LOG_INFO("server.loading", "NEW PLAYER KILL!");
 +
++#endif
      return true;
  }
  
-@@ -1700,6 +1704,11 @@ bool Battleground::UpdateBotScore(Creature const* bot, uint32 type, uint32 value
+@@ -1700,6 +1706,13 @@ bool Battleground::UpdateBotScore(Creature const* bot, uint32 type, uint32 value
          return false;
  
      itr->second->UpdateScore(type, value);
++#ifdef USE_CUSTOM_CHANGES
 +
-+    // Ornfelt: player score:
++    // player score:
 +    //if (type == SCORE_KILLING_BLOWS)
 +    //	LOG_INFO("server.loading", "NEW BOT KILL!");
 +
++#endif
      return true;
  }
  //end npcbot
 diff --git a/src/server/game/Battlegrounds/Battleground.h b/src/server/game/Battlegrounds/Battleground.h
-index d9d7bda46..ba7cc7c50 100644
+index d9d7bda46..dca0f4fa4 100644
 --- a/src/server/game/Battlegrounds/Battleground.h
 +++ b/src/server/game/Battlegrounds/Battleground.h
-@@ -167,7 +167,9 @@ enum BattlegroundTimeIntervals
+@@ -167,7 +167,13 @@ enum BattlegroundTimeIntervals
  
  enum BattlegroundStartTimeIntervals
  {
--    BG_START_DELAY_2M               = 120000,               // ms (2 minutes)
-+    // Ornfelt: 1m bg start time interval
++#ifdef USE_CUSTOM_CHANGES
++    // 1m bg start time interval
 +    //BG_START_DELAY_2M               = 120000,               // ms (2 minutes)
 +    BG_START_DELAY_2M               = 60000,                // ms (1 minute)
++#else
+     BG_START_DELAY_2M               = 120000,               // ms (2 minutes)
++#endif
      BG_START_DELAY_1M               = 60000,                // ms (1 minute)
      BG_START_DELAY_30S              = 30000,                // ms (30 seconds)
      BG_START_DELAY_15S              = 15000,                // ms (15 seconds) Used only in arena
 diff --git a/src/server/game/Battlegrounds/BattlegroundMgr.cpp b/src/server/game/Battlegrounds/BattlegroundMgr.cpp
-index 6824d4602..7eb1e3074 100644
+index 6824d4602..bf7885f06 100644
 --- a/src/server/game/Battlegrounds/BattlegroundMgr.cpp
 +++ b/src/server/game/Battlegrounds/BattlegroundMgr.cpp
-@@ -380,6 +380,11 @@ Battleground* BattlegroundMgr::CreateNewBattleground(BattlegroundTypeId original
+@@ -380,6 +380,13 @@ Battleground* BattlegroundMgr::CreateNewBattleground(BattlegroundTypeId original
  {
      BattlegroundTypeId bgTypeId = GetRandomBG(originalBgTypeId, bracketEntry->minLevel);
  
-+    // Ornfelt: always nagrand skirm
++#ifdef USE_CUSTOM_CHANGES
++    // always nagrand skirm
 +    if (originalBgTypeId == 6)
 +        bgTypeId = BATTLEGROUND_NA;
 +    //LOG_INFO("server.loading", "CreateNewBG: {} originalBgTypeId: {}", std::to_string(bgTypeId), std::to_string(originalBgTypeId));
 +
++#endif
      if (originalBgTypeId == BATTLEGROUND_AA)
          originalBgTypeId = bgTypeId;
  
 diff --git a/src/server/game/Battlegrounds/BattlegroundQueue.cpp b/src/server/game/Battlegrounds/BattlegroundQueue.cpp
-index f8906af96..4fab36a3b 100644
+index f8906af96..18db4d988 100644
 --- a/src/server/game/Battlegrounds/BattlegroundQueue.cpp
 +++ b/src/server/game/Battlegrounds/BattlegroundQueue.cpp
-@@ -225,6 +225,7 @@ GroupQueueInfo* BattlegroundQueue::AddGroup(Player* leader, Group* group, Battle
+@@ -225,6 +225,9 @@ GroupQueueInfo* BattlegroundQueue::AddGroup(Player* leader, Group* group, Battle
          SendMessageBGQueue(leader, bg, bracketEntry);
  
      //npcbot: try to queue wandering bots
++#ifdef USE_CUSTOM_CHANGES
 +    // if (!isRated && !arenaType && !arenaTeamId && !sBattlegroundMgr->isTesting() && !leader->GetGroup()) // Don't allow group queue
++#endif
      if (!isRated && !isPremade && !arenaType && !arenaTeamId && !sBattlegroundMgr->isTesting())
      {
          if (!BotDataMgr::GenerateBattlegroundBots(leader, group, this, bracketEntry, ginfo))
-@@ -233,6 +234,15 @@ GroupQueueInfo* BattlegroundQueue::AddGroup(Player* leader, Group* group, Battle
+@@ -233,6 +236,17 @@ GroupQueueInfo* BattlegroundQueue::AddGroup(Player* leader, Group* group, Battle
                  uint32(bgTypeId), leader->GetDebugInfo().c_str(), group ? group->GetMembersCount() : 0u);
          }
      }
-+    // Ornfelt: Arena:
++#ifdef USE_CUSTOM_CHANGES
++    // Arena:
 +    else if (!isRated && arenaType && !sBattlegroundMgr->isTesting() && !leader->GetGroup()) // Don't allow group queue
 +    {
 +        if (!BotDataMgr::GenerateBattlegroundBots(leader, group, this, bracketEntry, ginfo))
@@ -6920,104 +7048,125 @@ index f8906af96..4fab36a3b 100644
 +                uint32(bgTypeId), leader->GetDebugInfo().c_str(), group ? group->GetMembersCount() : 0u);
 +        }
 +    }
++#endif
      //end npcbot
  
      return ginfo;
 diff --git a/src/server/game/Battlegrounds/Zones/BattlegroundAB.cpp b/src/server/game/Battlegrounds/Zones/BattlegroundAB.cpp
-index 24fa51279..708c829b9 100644
+index 24fa51279..9782b5a70 100644
 --- a/src/server/game/Battlegrounds/Zones/BattlegroundAB.cpp
 +++ b/src/server/game/Battlegrounds/Zones/BattlegroundAB.cpp
-@@ -708,6 +708,8 @@ GraveyardStruct const* BattlegroundAB::GetClosestGraveyardForBot(Creature* bot)
+@@ -708,6 +708,10 @@ GraveyardStruct const* BattlegroundAB::GetClosestGraveyardForBot(Creature* bot)
  void BattlegroundAB::RewardKillScore(TeamId teamId, uint32 amount)
  {
      // Score feature
-+    // Ornfelt AB score
++#ifdef USE_CUSTOM_CHANGES
++    // AB score
 +    //m_TeamScores[teamId] += amount + 20;
++#endif
      m_TeamScores[teamId] += amount;
      if (m_TeamScores[teamId] > BG_AB_MAX_TEAM_SCORE)
          m_TeamScores[teamId] = BG_AB_MAX_TEAM_SCORE;
-@@ -722,7 +724,7 @@ void BattlegroundAB::HandleBotKillPlayer(Creature* killer, Player* victim)
+@@ -722,7 +726,11 @@ void BattlegroundAB::HandleBotKillPlayer(Creature* killer, Player* victim)
          return;
  
      Battleground::HandleBotKillPlayer(killer, victim);
--    //RewardKillScore(GetPlayerTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
++#ifdef USE_CUSTOM_CHANGES
 +    //RewardKillScore(GetBotTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
++#else
+     //RewardKillScore(GetPlayerTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
++#endif
  }
  void BattlegroundAB::HandleBotKillBot(Creature* killer, Creature* victim)
  {
-@@ -730,7 +732,7 @@ void BattlegroundAB::HandleBotKillBot(Creature* killer, Creature* victim)
+@@ -730,7 +738,11 @@ void BattlegroundAB::HandleBotKillBot(Creature* killer, Creature* victim)
          return;
  
      Battleground::HandleBotKillBot(killer, victim);
--    //RewardKillScore(GetPlayerTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
++#ifdef USE_CUSTOM_CHANGES
 +    //RewardKillScore(GetBotTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
++#else
+     //RewardKillScore(GetPlayerTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
++#endif
  }
  void BattlegroundAB::HandlePlayerKillBot(Creature* victim, Player* killer)
  {
-@@ -738,7 +740,7 @@ void BattlegroundAB::HandlePlayerKillBot(Creature* victim, Player* killer)
+@@ -738,7 +750,11 @@ void BattlegroundAB::HandlePlayerKillBot(Creature* victim, Player* killer)
          return;
  
      Battleground::HandlePlayerKillBot(victim, killer);
--    //RewardKillScore(GetPlayerTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
++#ifdef USE_CUSTOM_CHANGES
 +    //RewardKillScore(killer->GetTeamId(), BG_AB_TickPoints[1]);
++#else
+     //RewardKillScore(GetPlayerTeamId(killer->GetGUID()), BG_AB_TickPoints[1]);
++#endif
  }
  //end npcbot
  
 diff --git a/src/server/game/Entities/Player/Player.cpp b/src/server/game/Entities/Player/Player.cpp
-index 7b975b491..4750aec9c 100644
+index 7b975b491..42b4ec661 100644
 --- a/src/server/game/Entities/Player/Player.cpp
 +++ b/src/server/game/Entities/Player/Player.cpp
-@@ -1149,6 +1149,11 @@ void Player::setDeathState(DeathState s, bool /*despawn = false*/)
+@@ -1149,6 +1149,13 @@ void Player::setDeathState(DeathState s, bool /*despawn = false*/)
      if (IsAlive() && !cur)
          //clear aura case after resurrection by another way (spells will be applied before next death)
          SetUInt32Value(PLAYER_SELF_RES_SPELL, 0);
++#ifdef USE_CUSTOM_CHANGES
 +
-+    // Ornfelt: check win condition (seems to be required if player gets killed by unit other than bot / player)
++    // check win condition (seems to be required if player gets killed by unit other than bot / player)
 +    if (InArena())
 +        if (Battleground* bg = GetBattleground())
 +            bg->CheckWinConditions();
++#endif
  }
  
  void Player::SetRestState(uint32 triggerId)
-@@ -10964,14 +10969,29 @@ void Player::InitDisplayIds()
+@@ -10964,14 +10971,35 @@ void Player::InitDisplayIds()
          case GENDER_FEMALE:
              SetDisplayId(info->displayId_f);
              SetNativeDisplayId(info->displayId_f);
-+            // Ornfelt: Save real native displayid and log it
++#ifdef USE_CUSTOM_CHANGES
++            // Save real native displayid and log it
 +            //demorphId = info->displayId_f;
 +            LOG_INFO("server.loading", "DisplayID: {}", std::to_string(info->displayId_f));
++#endif
              break;
          case GENDER_MALE:
              SetDisplayId(info->displayId_m);
              SetNativeDisplayId(info->displayId_m);
-+            // Ornfelt: If draenei, change to undead male display
++#ifdef USE_CUSTOM_CHANGES
++            // If draenei, change to undead male display
 +            //if (info->displayId_m == 16125)
 +            //{
 +            //    SetDisplayId(57);
 +            //    SetNativeDisplayId(57);
 +            //}
-+            // Ornfelt: Save real native displayid and log it
++            // Save real native displayid and log it
 +            //demorphId = info->displayId_m;
 +            LOG_INFO("server.loading", "DisplayID: {}", std::to_string(info->displayId_m));
++#endif
              break;
          default:
              LOG_ERROR("entities.player", "Invalid gender {} for player", gender);
              return;
-+            // Ornfelt: always skeleton
++#ifdef USE_CUSTOM_CHANGES
++            // always skeleton
 +            //SetDisplayId(7550);
 +            //SetNativeDisplayId(7550);
++#endif
      }
  }
  
 diff --git a/src/server/game/Entities/Unit/Unit.cpp b/src/server/game/Entities/Unit/Unit.cpp
-index 74d9c86cf..47ffe6499 100644
+index 74d9c86cf..eafcfbe6a 100644
 --- a/src/server/game/Entities/Unit/Unit.cpp
 +++ b/src/server/game/Entities/Unit/Unit.cpp
-@@ -1763,6 +1763,23 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
+@@ -1763,6 +1763,25 @@ void Unit::CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 dama
              break;
      }
  
-+    // Ornfelt: Buff spells
++#ifdef USE_CUSTOM_CHANGES
++    // Buff spells
 +    // Buff lava burst
 +    if (spellInfo->Id == 60043)
 +        damage *= 2;
@@ -7034,59 +7183,70 @@ index 74d9c86cf..47ffe6499 100644
 +    else if (spellInfo->Id == 44425)
 +        damage *= 100;
 +
++#endif
      damageInfo->cleanDamage = std::max(0, cleanDamage);
      damageInfo->damage = std::max(0, damage);
  
-@@ -4555,7 +4572,12 @@ bool Unit::IsUnderWater() const
+@@ -4555,7 +4574,16 @@ bool Unit::IsUnderWater() const
  
  void Unit::DeMorph()
  {
-+    // Ornfelt: demorph
++#ifdef USE_CUSTOM_CHANGES
++    // demorph
++#endif
      SetDisplayId(GetNativeDisplayId());
++#ifdef USE_CUSTOM_CHANGES
 +    //SetNativeDisplayId(GetNativeDisplayId());
 +
 +    //SetDisplayId(demorphId);
 +    //SetNativeDisplayId(demorphId);
++#endif
  }
  
  int32 Unit::GetHighestExclusiveSameEffectSpellGroupValue(AuraEffect const* aurEff, AuraType auraType, bool checkMiscValue /*= false*/, int32 miscValue /*= 0*/) const
 diff --git a/src/server/game/Entities/Unit/Unit.h b/src/server/game/Entities/Unit/Unit.h
-index 861866f11..793b03f8e 100644
+index 861866f11..2100c604d 100644
 --- a/src/server/game/Entities/Unit/Unit.h
 +++ b/src/server/game/Entities/Unit/Unit.h
-@@ -855,6 +855,9 @@ public:
+@@ -855,6 +855,11 @@ public:
      void RestoreFaction();
      [[nodiscard]] uint32 GetOldFactionId() const { return _oldFactionId; }
  
-+    // Ornfelt: demorphid
++#ifdef USE_CUSTOM_CHANGES
++    // demorphid
 +    uint32 demorphId = 0;
 +
++#endif
      /*********************************************************/
      /***            METHODS RELATED TO COMBATS             ***/
      /*********************************************************/
 diff --git a/src/server/game/Maps/Map.cpp b/src/server/game/Maps/Map.cpp
-index 0331067b4..b1ab23dca 100644
+index 0331067b4..0b40954ff 100644
 --- a/src/server/game/Maps/Map.cpp
 +++ b/src/server/game/Maps/Map.cpp
-@@ -781,7 +781,8 @@ void Map::RemoveFromMap(T* obj, bool remove)
+@@ -781,7 +781,12 @@ void Map::RemoveFromMap(T* obj, bool remove)
  
      obj->RemoveFromWorld();
  
--    obj->RemoveFromGrid();
++#ifdef USE_CUSTOM_CHANGES
 +    if (obj->IsInGrid())
 +        obj->RemoveFromGrid();
++#else
+     obj->RemoveFromGrid();
++#endif
  
      obj->ResetMap();
  
 diff --git a/src/server/game/Spells/Auras/SpellAuraEffects.cpp b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
-index 5ed11a876..8a7b61ae6 100644
+index 5ed11a876..8b75ecf45 100644
 --- a/src/server/game/Spells/Auras/SpellAuraEffects.cpp
 +++ b/src/server/game/Spells/Auras/SpellAuraEffects.cpp
-@@ -2093,6 +2093,24 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
+@@ -2093,6 +2093,26 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
  
      modelid = target->GetModelForForm(form, GetId());
  
-+    // Ornfelt: debug info...
++#ifdef USE_CUSTOM_CHANGES
++    // debug info...
 +    //if (target->GetTypeId() == TYPEID_PLAYER);
 +    //{
 +    //    //LOG_INFO("server.loading", "IN HandleByAuraModShapeshift! modelid: {}", modelid);
@@ -7104,43 +7264,51 @@ index 5ed11a876..8a7b61ae6 100644
 +    //    }
 +    //}
 +
++#endif
      if (apply)
      {
          // remove polymorph before changing display id to keep new display id
 diff --git a/src/server/game/Spells/Spell.cpp b/src/server/game/Spells/Spell.cpp
-index 4987039be..393533294 100644
+index 4987039be..6171b80d5 100644
 --- a/src/server/game/Spells/Spell.cpp
 +++ b/src/server/game/Spells/Spell.cpp
-@@ -3735,6 +3735,9 @@ SpellCastResult Spell::prepare(SpellCastTargets const* targets, AuraEffect const
+@@ -3735,6 +3735,11 @@ SpellCastResult Spell::prepare(SpellCastTargets const* targets, AuraEffect const
      if (unitCaster && unitCaster->IsPlayer())
          if (unitCaster->ToPlayer()->GetCommandStatus(CHEAT_CASTTIME))
              m_casttime = 0;
-+        // Ornfelt: remove cast time for ghost wolf
++#ifdef USE_CUSTOM_CHANGES
++        // remove cast time for ghost wolf
 +        else if (m_spellInfo->Id == 2645)
 +            m_casttime = 0;
++#endif
  
      // don't allow channeled spells / spells with cast time to be casted while moving
      // (even if they are interrupted on moving, spells with almost immediate effect get to have their effect processed before movement interrupter kicks in)
-@@ -7110,7 +7113,8 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* /*param1*/, uint32* /*para
+@@ -7110,7 +7115,12 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* /*param1*/, uint32* /*para
                      if (unitCaster && unitCaster->IsPlayer() && !allowMount && !m_spellInfo->AreaGroupId)
                          return SPELL_FAILED_NO_MOUNTS_ALLOWED;
  
--                    if (unitCaster && unitCaster->IsInDisallowedMountForm())
-+                    // Ornfelt: Allow display ID 7550 to mount even when in a normally disallowed mount form
++#ifdef USE_CUSTOM_CHANGES
++                    // Allow display ID 7550 to mount even when in a normally disallowed mount form
 +                    if (unitCaster && unitCaster->IsInDisallowedMountForm() && unitCaster->GetDisplayId() != 7550)
++#else
+                     if (unitCaster && unitCaster->IsInDisallowedMountForm())
++#endif
                          return SPELL_FAILED_NOT_SHAPESHIFT;
  
                      // xinef: dont allow to cast mounts in specific transforms
 diff --git a/src/server/scripts/Commands/cs_modify.cpp b/src/server/scripts/Commands/cs_modify.cpp
-index 058ca793e..b64c7d7e2 100644
+index 058ca793e..04cd52717 100644
 --- a/src/server/scripts/Commands/cs_modify.cpp
 +++ b/src/server/scripts/Commands/cs_modify.cpp
-@@ -843,6 +843,8 @@ public:
+@@ -843,6 +843,10 @@ public:
          }
  
          target->SetDisplayId(displayID);
-+        // Ornfelt: morph
++#ifdef USE_CUSTOM_CHANGES
++        // morph
 +        //target->SetNativeDisplayId(displayID);
++#endif
          return true;
      }
  
