@@ -59,6 +59,17 @@ DatabaseWorkerPool<T>::DatabaseWorkerPool() :
 {
     WPFatal(mysql_thread_safe(), "Used MySQL library isn't thread-safe.");
 
+#if defined(USE_MARIADB_FIX) && defined(MARIADB_PACKAGE_VERSION_ID)
+    // MariaDB Connector/C reports its own package version (3.4.9 => 30409),
+    // while MYSQL_VERSION_ID holds the MariaDB server version it shipped with
+    bool isSupportClientDB = mysql_get_client_version() >= MIN_MARIADB_CLIENT_VERSION;
+    bool isSameClientDB = mysql_get_client_version() == MARIADB_PACKAGE_VERSION_ID;
+
+    WPFatal(isSupportClientDB, "AzerothCore does not support MariaDB Connector/C versions below 3.2.3\n\nFound version: {} / {}. Server compiled with: {}.",
+        mysql_get_client_info(), mysql_get_client_version(), MARIADB_PACKAGE_VERSION_ID);
+    WPFatal(isSameClientDB, "Used MariaDB Connector/C library version ({} id {}) does not match the version id used to compile AzerothCore (id {}).",
+        mysql_get_client_info(), mysql_get_client_version(), MARIADB_PACKAGE_VERSION_ID);
+#else
     bool isSupportClientDB = mysql_get_client_version() >= MIN_MYSQL_CLIENT_VERSION;
     bool isSameClientDB = mysql_get_client_version() == MYSQL_VERSION_ID;
 
@@ -66,6 +77,7 @@ DatabaseWorkerPool<T>::DatabaseWorkerPool() :
         mysql_get_client_info(), mysql_get_client_version(), MYSQL_VERSION_ID);
     WPFatal(isSameClientDB, "Used MySQL library version ({} id {}) does not match the version id used to compile AzerothCore (id {}).\nSearch the wiki for ACE00046 in Common Errors (https://www.azerothcore.org/wiki/common-errors#ace00046).",
         mysql_get_client_info(), mysql_get_client_version(), MYSQL_VERSION_ID);
+#endif
 }
 
 template <class T>
@@ -382,6 +394,8 @@ void DatabaseWorkerPool<T>::KeepAlive()
 *
 * DatabaseIncompatibleVersion("8.0.35") => false
 * DatabaseIncompatibleVersion("5.6.6") => true
+* DatabaseIncompatibleVersion("5.5.5-10.5.5-MariaDB") => false (USE_MARIADB_FIX)
+* DatabaseIncompatibleVersion("10.4.0-MariaDB") => true (USE_MARIADB_FIX)
 *
 * Adapted from stackoverflow response
 * https://stackoverflow.com/a/2941508
@@ -391,6 +405,24 @@ void DatabaseWorkerPool<T>::KeepAlive()
 */
 bool DatabaseIncompatibleVersion(std::string const mysqlVersion)
 {
+#ifdef USE_MARIADB_FIX
+    // anon func to turn a version string into an array of uint32
+    // "10.11.6-MariaDB" => [10, 11, 6] (multi-digit parts, unlike the single char parse below)
+    auto parse = [](std::string const& input)
+    {
+        std::vector<uint32> result;
+        std::istringstream parser(input);
+        for (int i = 0; i < 3; i++)
+        {
+            uint32 part = 0;
+            parser >> part;
+            result.push_back(part);
+            // Skip period
+            parser.get();
+        }
+        return result;
+    };
+#else
     // anon func to turn a version string into an array of uint8
     // "1.2.3" => [1, 2, 3]
     auto parse = [](std::string const& input)
@@ -407,10 +439,22 @@ bool DatabaseIncompatibleVersion(std::string const mysqlVersion)
         }
         return result;
     };
+#endif
 
     // default to values for MySQL
     uint8 offset = 0;
     std::string minVersion = MIN_MYSQL_SERVER_VERSION;
+
+#ifdef USE_MARIADB_FIX
+    if (mysqlVersion.find("MariaDB") != std::string::npos)
+    {
+        // MariaDB 10.x servers prefix their version with "5.5.5-". MariaDB Connector/C strips it,
+        // libmysqlclient does not, and MariaDB 11.x no longer sends it
+        if (mysqlVersion.rfind("5.5.5-", 0) == 0)
+            offset = 6;
+        minVersion = MIN_MARIADB_SERVER_VERSION;
+    }
+#endif
 
     auto parsedMySQLVersion = parse(mysqlVersion.substr(offset));
     auto parsedMinVersion = parse(minVersion);
@@ -447,8 +491,13 @@ uint32 DatabaseWorkerPool<T>::OpenConnections(InternalIndex type, uint8 numConne
         }
         else if (DatabaseIncompatibleVersion(connection->GetServerInfo()))
         {
+#ifdef USE_MARIADB_FIX
+            LOG_ERROR("sql.driver", "AzerothCore does not support MySQL versions below 8.0 or MariaDB versions below 10.5\n\nFound server version: {}. Server compiled with: {}.",
+                connection->GetServerInfo(), MYSQL_VERSION_ID);
+#else
             LOG_ERROR("sql.driver", "AzerothCore does not support MySQL versions below 8.0\n\nFound server version: {}. Server compiled with: {}.",
                 connection->GetServerInfo(), MYSQL_VERSION_ID);
+#endif
             return 1;
         }
         else

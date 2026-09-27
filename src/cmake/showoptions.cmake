@@ -161,6 +161,15 @@ else()
   message("* Use custom changes              : No")
 endif()
 
+# MariaDB (Connector/C) client library support, only as part of the custom changes on Linux
+# and only when the found client headers are MariaDB's (mariadb_version.h ships only with those)
+if( USE_CUSTOM_CHANGES AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND EXISTS "${MYSQL_INCLUDE_DIR}/mariadb_version.h" )
+  message("* Use MariaDB fix                 : Yes (MariaDB client library found)")
+  add_definitions(-DUSE_MARIADB_FIX)
+else()
+  message("* Use MariaDB fix                 : No")
+endif()
+
 if(WIN32)
   if(NOT WITH_SOURCE_TREE STREQUAL "no")
   message("* Show source tree                : Yes - \"${WITH_SOURCE_TREE}\"")

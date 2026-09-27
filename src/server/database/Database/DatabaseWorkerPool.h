@@ -38,6 +38,21 @@
 */
 #define MIN_MYSQL_SERVER_VERSION "8.0.0"
 
+#ifdef USE_MARIADB_FIX
+/**
+* @def MIN_MARIADB_CLIENT_VERSION
+* The minimum MariaDB Connector/C Version (3.2.3)
+* mysql_get_client_version() returns the Connector/C package version, not a server version
+*/
+#define MIN_MARIADB_CLIENT_VERSION 30203u
+
+/**
+* @def MIN_MARIADB_SERVER_VERSION
+* The minimum MariaDB Server Version
+*/
+#define MIN_MARIADB_SERVER_VERSION "10.5.0"
+#endif
+
 template <typename T>
 class ProducerConsumerQueue;
 
