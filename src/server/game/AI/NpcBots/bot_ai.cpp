@@ -15955,15 +15955,18 @@ void bot_ai::JustDied(Unit* u)
     else if (u && (u->IsPvP() || u->IsControlledByPlayer() || u->IsNPCBotOrPet()))
     {
 #ifdef USE_CUSTOM_CHANGES
-        //BOT_LOG_DEBUG("npcbots", "{} {} id {} class {} level {} WAS KILLED BY {} {} id {} class {} level {} on their way to {}!",
-        BOT_LOG_INFO("npcbots", "{} {} id {} class {} level {} WAS KILLED BY {} {} id {} class {} level {} on their way to {}!",
+        // preprocessor directives inside macro arguments are not portable (MSVC C2816), select the macro instead
+        //#define BOT_KILLED_LOG BOT_LOG_DEBUG
+#define BOT_KILLED_LOG BOT_LOG_INFO
 #else
-        BOT_LOG_DEBUG("npcbots", "{} {} id {} class {} level {} WAS KILLED BY {} {} id {} class {} level {} on their way to {}!",
+#define BOT_KILLED_LOG BOT_LOG_DEBUG
 #endif
+        BOT_KILLED_LOG("npcbots", "{} {} id {} class {} level {} WAS KILLED BY {} {} id {} class {} level {} on their way to {}!",
             IsWanderer() ? "Wandering bot" : "Bot", me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
             (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
             u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
             IsWanderer() ? _travel_node_cur->GetName().c_str() : "''");
+#undef BOT_KILLED_LOG
     }
 
     _reviveTimer = (IsWanderer() && !(u && u->IsControlledByPlayer())) ? REVIVE_TIMER_MEDIUM :
@@ -16013,27 +16016,31 @@ void bot_ai::KilledUnit(Unit* u)
             if (IsWanderer())
             {
 #ifdef USE_CUSTOM_CHANGES
-                //BOT_LOG_DEBUG("npcbots", "Wandering bot {} id {} class {} level {} KILLED {} {} id {} class {} level {} on their way to {}!",
-                BOT_LOG_INFO("npcbots", "Wandering bot {} id {} class {} level {} KILLED {} {} id {} class {} level {} on their way to {}!",
+                //#define BOT_KILLED_LOG BOT_LOG_DEBUG
+#define BOT_KILLED_LOG BOT_LOG_INFO
 #else
-                BOT_LOG_DEBUG("npcbots", "Wandering bot {} id {} class {} level {} KILLED {} {} id {} class {} level {} on their way to {}!",
+#define BOT_KILLED_LOG BOT_LOG_DEBUG
 #endif
+                BOT_KILLED_LOG("npcbots", "Wandering bot {} id {} class {} level {} KILLED {} {} id {} class {} level {} on their way to {}!",
                     me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
                     (u->IsPlayer() ? "player" : u->IsNPCBot() ? u->ToCreature()->GetBotAI()->IsWanderer() ? "wandering bot" : "bot" : u->IsNPCBotPet() ? "botpet" : "creature"),
                     u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
                     _travel_node_cur->GetName().c_str());
+#undef BOT_KILLED_LOG
             }
             else if (u->IsNPCBot() && u->ToCreature()->GetBotAI()->IsWanderer())
             {
 #ifdef USE_CUSTOM_CHANGES
-                //BOT_LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} KILLED wandering bot {} id {} class {} level {} on their way to {}!",
-                BOT_LOG_INFO("npcbots", "Bot {} id {} class {} level {} KILLED wandering bot {} id {} class {} level {} on their way to {}!",
+                //#define BOT_KILLED_LOG BOT_LOG_DEBUG
+#define BOT_KILLED_LOG BOT_LOG_INFO
 #else
-                BOT_LOG_DEBUG("npcbots", "Bot {} id {} class {} level {} KILLED wandering bot {} id {} class {} level {} on their way to {}!",
+#define BOT_KILLED_LOG BOT_LOG_DEBUG
 #endif
+                BOT_KILLED_LOG("npcbots", "Bot {} id {} class {} level {} KILLED wandering bot {} id {} class {} level {} on their way to {}!",
                     me->GetName().c_str(), me->GetEntry(), uint32(_botclass), uint32(me->GetLevel()),
                     u->GetName().c_str(), u->GetEntry(), uint32(u->GetClass()), uint32(u->GetLevel()),
                     IsWanderer() ? _travel_node_cur->GetName().c_str() : "''");
+#undef BOT_KILLED_LOG
             }
         }
     }
