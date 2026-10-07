@@ -10976,7 +10976,9 @@ void Player::InitDisplayIds()
 #ifdef USE_CUSTOM_CHANGES
             // Save real native displayid and log it
             //demorphId = info->displayId_f;
-            LOG_INFO("server.loading", "DisplayID: {}", std::to_string(info->displayId_f));
+            // Not for headless sessions - playerbots (and their name-cache players) would flood the log
+            if (!GetSession()->IsHeadless())
+                LOG_INFO("server.loading", "DisplayID: {}", std::to_string(info->displayId_f));
 #endif
             break;
         case GENDER_MALE:
@@ -10991,7 +10993,9 @@ void Player::InitDisplayIds()
             //}
             // Save real native displayid and log it
             //demorphId = info->displayId_m;
-            LOG_INFO("server.loading", "DisplayID: {}", std::to_string(info->displayId_m));
+            // Not for headless sessions - playerbots (and their name-cache players) would flood the log
+            if (!GetSession()->IsHeadless())
+                LOG_INFO("server.loading", "DisplayID: {}", std::to_string(info->displayId_m));
 #endif
             break;
         default:
