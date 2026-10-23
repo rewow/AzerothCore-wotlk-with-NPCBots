@@ -236,7 +236,7 @@ static void SpawnWandererBot(uint32 bot_id, WanderNode const* spawnLoc, NpcBotRe
     //outfile.close();
     // Write to DB
     if (map->GetEntry()->IsContinent())
-        CharacterDatabase.DirectExecute("INSERT INTO characters_playermap(guid,account,name,class,race,level,gender,position_x,position_y,map,zone,extra_flags,online,taximask,innTriggerId) VALUES ({},1,\"{}\",{},{},{},{},{},{},{},{},64,1,'',1)",
+        CharacterDatabase.Execute("INSERT INTO characters_playermap(guid,account,name,class,race,level,gender,position_x,position_y,map,zone,extra_flags,online,taximask,innTriggerId) VALUES ({},1,\"{}\",{},{},{},{},{},{},{},{},64,1,'',1)",
                 bot_id,bot_template.Name.c_str(),uint32(bot_extras->bclass),uint32(bot_extras->race),0,1,spawnLoc->m_positionX,spawnLoc->m_positionY,spawnLoc->GetMapId(),spawnLoc->GetZoneId());
 #else
     BOT_LOG_DEBUG("npcbots", "Spawning wandering bot: {} ({}) class {} race {} fac {}, location: mapId {} {} ({})",
@@ -916,6 +916,11 @@ void BotDataMgr::Update(uint32 diff)
             const auto bditr = _botsData.find(bot_despawn_id);
             ASSERT(bditr != _botsData.cend());
             const bool is_owned = bditr->second.owner != 0;
+
+#ifdef USE_CUSTOM_CHANGES
+            if (!is_owned)
+                CharacterDatabase.Execute("DELETE FROM characters_playermap WHERE guid = {}", bot_despawn_id);
+#endif
 
             sBotGen->CleanExtraBotData(bot);
 
@@ -1921,6 +1926,11 @@ void BotDataMgr::LoadWanderMap(bool reload, bool force_all_maps)
 void BotDataMgr::GenerateWanderingBots()
 {
     const uint32 wandering_bots_desired = BotCfg::GetDesiredWanderingBotsCount();
+
+#ifdef USE_CUSTOM_CHANGES
+    // Wanderer ids are never reused, so every row left from the previous run is a stale bot
+    CharacterDatabase.DirectExecute("DELETE FROM characters_playermap");
+#endif
 
     if (wandering_bots_desired == 0)
         return;
